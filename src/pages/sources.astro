@@ -1,0 +1,117 @@
+---
+import BaseLayout from '../components/BaseLayout.astro';
+import StatusBadge from '../components/StatusBadge.astro';
+import { langFromUrl, t } from '../i18n';
+
+const lang = langFromUrl(Astro.url);
+
+const links = [
+  { key: 'sources.link.paper', href: undefined },
+  { key: 'sources.link.moip', href: 'https://www.moip.go.kr/' },
+  { key: 'sources.link.jpoQm', href: 'https://www.jpo.go.jp/e/introduction/hinshitu/shinsa/tokkyo/' },
+  { key: 'sources.link.opd', href: 'https://www.jpo.go.jp/e/support/j_platpat/patent_search/OPD_service.html' },
+  { key: 'sources.link.wipoCase', href: 'https://www.wipo.int/en/web/case' },
+  { key: 'sources.link.st96', href: 'https://www.wipo.int/standards/en/st96/' },
+  { key: 'sources.link.kipris', href: 'https://plus.kipris.or.kr/' },
+  { key: 'sources.link.caipex', href: 'https://caipex.site/' },
+  { key: 'sources.link.gh', href: 'https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages' },
+];
+
+// One-sentence intros written from actually visiting each site (2026-09-25).
+const related = [
+  {
+    href: 'https://moip.ai.kr/',
+    name: 'moip.ai.kr — AI Examination Quality Gateway',
+    desc: {
+      ko: 'AI 심사품질 서비스 세 곳(정보 허브·규칙엔진 연구·운영 관제)으로 연결하는 한국어 게이트웨이 페이지.',
+      en: 'A Korean-language gateway page linking to three AI examination-quality services (an information hub, a rule-engine research site and an operational control center).',
+      ja: 'AI審査品質サービスの3拠点（情報ハブ·ルールエンジン研究·運用管理）へつなぐ韓国語のゲートウェイページ。',
+    },
+  },
+  {
+    href: 'https://eqai.moip.ai.kr/',
+    name: 'eqai.moip.ai.kr — 심사품질 AI센터 (Examination Quality AI Center)',
+    desc: {
+      ko: '특허·상표·디자인 심사품질 진단을 지원하는 증거 기반 AI 센터를 소개하는 한·영·일 다국어 허브 사이트.',
+      en: 'A multilingual hub presenting an evidence-based AI center that supports patent, trademark and design examination-quality diagnosis.',
+      ja: '特許·商標·意匠の審査品質診断を支援する証拠ベースAIセンターを紹介する日韓英多言語ハブサイト。',
+    },
+  },
+  {
+    href: 'https://research.moip.ai.kr/',
+    name: 'research.moip.ai.kr',
+    desc: {
+      ko: '관련 연구 사이트 (2026-09-25 확인 시 접속되지 않음 — 운영 여부를 직접 확인하세요).',
+      en: 'A related research site (unreachable when checked on 2026-09-25 — verify directly).',
+      ja: '関連研究サイト（2026-09-25確認時点で接続できず — 直接ご確認ください）。',
+    },
+  },
+  {
+    href: 'https://layer.moip.ai.kr/',
+    name: 'layer.moip.ai.kr',
+    desc: {
+      ko: '관련 연구 사이트 (2026-09-25 확인 시 접속되지 않음 — 운영 여부를 직접 확인하세요).',
+      en: 'A related research site (unreachable when checked on 2026-09-25 — verify directly).',
+      ja: '関連研究サイト（2026-09-25確認時点で接続できず — 直接ご確認ください）。',
+    },
+  },
+];
+
+const glossary = [
+  'sameFamily', 'claimVersion', 'priority', 'examinerCited', 'aiDiscovered',
+  'evidenceSpan', 'legalProfile', 'qualitySignal', 'abstain',
+] as const;
+---
+<BaseLayout titleKeys={['nav.sources', 'nav.siteName']} descKey="sources.sub">
+  <div class="container">
+    <header class="page-head">
+      <StatusBadge kind="practice" lang={lang} />
+      <StatusBadge kind="proposal" lang={lang} />
+      <h1>{t(lang, 'sources.title')}</h1>
+      <p class="lead">{t(lang, 'sources.sub')}</p>
+    </header>
+
+    <section class="card" aria-labelledby="links-title">
+      <h2 id="links-title" class="mt-0">{t(lang, 'sources.secLinksTitle')}</h2>
+      <ul>
+        {links.map((l) => (
+          <li>
+            {l.href ? (
+              <a href={l.href} rel="noopener" target="_blank">{t(lang, l.key as never)}</a>
+            ) : (
+              <strong>{t(lang, l.key as never)}</strong>
+            )}{' '}
+            — <span class="small" data-i18n={`${l.key}Desc`}>{t(lang, `${l.key}Desc` as never)}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <section class="card" aria-labelledby="related-title">
+      <h2 id="related-title" class="mt-0">{t(lang, 'sources.secRelatedTitle')}</h2>
+      <p class="small">{t(lang, 'sources.relatedHint')}</p>
+      <ul>
+        {related.map((r) => (
+          <li>
+            <a href={r.href} rel="noopener" target="_blank">{r.name}</a>
+            {' — '}
+            <span class="small" data-i18n-l10n data-l10n-ko={r.desc.ko} data-l10n-en={r.desc.en} data-l10n-ja={r.desc.ja}>{r.desc.ko}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <section class="card" aria-labelledby="glossary-title">
+      <h2 id="glossary-title" class="mt-0">{t(lang, 'sources.secGlossaryTitle')}</h2>
+      <p class="small">{t(lang, 'sources.glossaryIntro')}</p>
+      <dl class="glossary">
+        {glossary.map((g) => (
+          <>
+            <dt>{t(lang, `sources.glossary.${g}.term` as never)}</dt>
+            <dd>{t(lang, `sources.glossary.${g}.def` as never)}</dd>
+          </>
+        ))}
+      </dl>
+    </section>
+  </div>
+</BaseLayout>

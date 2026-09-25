@@ -1,0 +1,21 @@
+---
+import type { Lang } from '../i18n';
+import { t } from '../i18n';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+---
+<footer class="site-footer">
+  <div class="container">
+    <p class="footer-note mb-0">
+      <strong>{t(lang, 'footer.name')}</strong> — <span data-i18n="footer.nameNote">{t(lang, 'footer.nameNote')}</span>
+    </p>
+    <p class="footer-note">
+      {t(lang, 'footer.support')} — <a href="https://caipex.site/" rel="noopener" target="_blank">CAIPEX</a>
+    </p>
+    <p class="footer-note small">{t(lang, 'footer.disclaimer')}</p>
+    <p class="small mb-0">© 2026 <span data-i18n="footer.name">{t(lang, 'footer.name')}</span> · <span data-i18n="footer.license">{t(lang, 'footer.license')}</span></p>
+  </div>
+</footer>

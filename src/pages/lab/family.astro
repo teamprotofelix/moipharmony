@@ -1,0 +1,235 @@
+---
+import BaseLayout from '../../components/BaseLayout.astro';
+import StatusBadge from '../../components/StatusBadge.astro';
+import HeroImage from '../../components/HeroImage.astro';
+import { langFromUrl, t } from '../../i18n';
+
+const lang = langFromUrl(Astro.url);
+---
+<BaseLayout titleKeys={['nav.labFamily', 'nav.siteName']} descKey="labFamily.sub" showCaseBar>
+  <div class="container">
+    <header class="page-head">
+      <StatusBadge kind="simulation" lang={lang} />
+      <h1>{t(lang, 'labFamily.title')}</h1>
+      <p class="lead">{t(lang, 'labFamily.sub')}</p>
+    </header>
+
+    <HeroImage basename="family-timeline" lang={lang} altKey="images.family.alt" ratio="3-2" />
+
+    <div id="lab-case"></div>
+
+    <section class="card" id="lab-confidence">
+      <h2 class="mt-0">{t(lang, 'labFamily.confidence.title')}</h2>
+      <p class="small">{t(lang, 'labFamily.confidence.hint')}</p>
+      <div id="lab-confidence-body"></div>
+    </section>
+
+    <section class="grid grid--2fixed">
+      <div class="card kr-panel" id="lab-timeline-kr"></div>
+      <div class="card jp-panel" id="lab-timeline-jp"></div>
+    </section>
+
+    <section class="card" id="lab-snapshot">
+      <h2 class="mt-0">{t(lang, 'labFamily.snapshot.title')}</h2>
+      <p class="small">{t(lang, 'labFamily.snapshot.hint')}</p>
+      <div id="lab-snapshot-body"></div>
+    </section>
+
+    <section class="card" id="lab-versions">
+      <h2 class="mt-0">{t(lang, 'labFamily.version.label')}</h2>
+      <div id="lab-versions-body"></div>
+    </section>
+
+    <div id="lab-trace"></div>
+
+    <div class="btn-row">
+      <a class="btn btn--teal" href="/lab/claims/">{t(lang, 'labFamily.nextStep')} <span aria-hidden="true">→</span></a>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import { h, clear, spanOfCase } from '../../lib/ui';
+  import { initLab, renderCaseSelector, renderLabTraceCard, mount } from '../../lib/lab-common';
+  import type { HarmonyCase, TimelineEvent } from '../../data/types';
+
+  const ctx = initLab();
+  const { lang, d, t, state, c, evalNow, persist } = ctx;
+
+  function renderAll() {
+    mount('lab-case', renderCaseSelector(ctx, () => location.reload()));
+    renderConfidence();
+    renderTimelines();
+    renderSnapshot();
+    renderVersions();
+    mount('lab-trace', renderLabTraceCard(ctx));
+  }
+
+  // ── Family confidence ─────────────────────────────────────
+  function renderConfidence() {
+    const body = document.getElementById('lab-confidence-body')!;
+    clear(body);
+    const confidence = state.familyConfidence ?? c.familyLink.confidence;
+    const slider = h('input', {
+      type: 'range',
+      min: '0',
+      max: '1',
+      step: '0.01',
+      value: String(confidence),
+      style: 'width:100%;max-width:420px',
+      oninput: (e: Event) => {
+        state.familyConfidence = Number((e.target as HTMLInputElement).value);
+        persist();
+        renderAll();
+      },
+    }) as HTMLInputElement;
+    body.append(
+      slider,
+      h('p', {}, [
+        h('strong', {}, [String(confidence)]),
+        ' · ',
+        h('span', { class: 'small' }, [t('labFamily.priorityLabel')]),
+        ': ',
+        h('span', { class: 'small' }, [...c.familyLink.sourceSpanIds.map((sid) => spanOfCase(c, sid)?.paragraph ?? sid)]),
+      ]),
+    );
+    if (confidence < 0.7) {
+      body.append(h('p', { class: 'callout callout--danger', role: 'status' }, [t('labFamily.confidence.low')]));
+    }
+  }
+
+  // ── Timelines (exact SVG + text legend) ───────────────────
+  const EVENT_LABELS: Record<string, string> = {
+    filing: 'labFamily.event.filing',
+    publication: 'labFamily.event.publication',
+    amendment: 'labFamily.event.amendment',
+    oa: 'labFamily.event.oa',
+    citation: 'labFamily.event.citation',
+    retrieval: 'labFamily.event.retrieval',
+  };
+
+  function renderTimelines() {
+    for (const office of ['KR', 'JP'] as const) {
+      const host = document.getElementById(`lab-timeline-${office.toLowerCase()}`)!;
+      clear(host);
+      host.append(h('h2', { class: 'mt-0' }, [office === 'KR' ? t('labFamily.krSide') : t('labFamily.jpSide')]));
+      const events: TimelineEvent[] = [...c.events[office]].sort((a, b) => (a.date < b.date ? -1 : 1));
+      const dates = [...events.map((e) => e.date), state.comparisonDate].sort();
+      const min = dates[0];
+      const max = dates[dates.length - 1];
+      const span = Math.max(1, (new Date(max).getTime() - new Date(min).getTime()) / 86400000);
+
+      const x = (date: string): number => 10 + ((new Date(date).getTime() - new Date(min).getTime()) / 86400000 / span) * 700;
+
+      const color = office === 'KR' ? 'var(--kr)' : 'var(--jp)';
+      const svg = h('div', {});
+      svg.innerHTML = `
+        <svg viewBox="0 0 720 46" role="img" aria-label="${office} timeline" style="width:100%;height:auto">
+          <line x1="10" y1="16" x2="710" y2="16" stroke="var(--line-strong)" stroke-width="2"/>
+          <line x1="${x(state.comparisonDate)}" y1="6" x2="${x(state.comparisonDate)}" y2="30" stroke="var(--teal)" stroke-width="2" stroke-dasharray="4 3">
+            <title>${t('labFamily.comparisonDate.label')}: ${state.comparisonDate}</title>
+          </line>
+          ${events
+            .map(
+              (e) =>
+                `<circle cx="${x(e.date)}" cy="16" r="6" fill="${e.type === 'retrieval' ? 'var(--teal)' : color}" stroke="var(--bg-raised)" stroke-width="2">
+                   <title>${t(EVENT_LABELS[e.type])} — ${e.date}</title>
+                 </circle>`,
+            )
+            .join('')}
+        </svg>`;
+      host.append(svg);
+
+      const legend = h('ol', { class: 'small', style: 'margin:8px 0 0' });
+      for (const e of events) {
+        const after = e.date > state.comparisonDate;
+        const detail = e.detail ? ` — ${e.detail[lang] ?? e.detail.ko}` : '';
+        legend.append(
+          h('li', { style: after ? 'opacity:.5' : undefined }, [
+            h('span', { class: 'mono' }, [e.date]),
+            ' ',
+            t(EVENT_LABELS[e.type]),
+            detail,
+            after ? ` (${t('labFamily.comparisonDate.label')} ${t('labFamily.event.retrieval')}↓)` : '',
+          ]),
+        );
+      }
+      host.append(legend, h('p', { class: 'small', style: 'margin:6px 0 0' }, [`${t('labFamily.retrievedAt')}: ${t('labFamily.comparisonDate.label')} ${state.comparisonDate}`]));
+    }
+  }
+
+  // ── Comparable snapshot ───────────────────────────────────
+  function renderSnapshot() {
+    const body = document.getElementById('lab-snapshot-body')!;
+    clear(body);
+    const dateInput = h('input', {
+      type: 'date',
+      value: state.comparisonDate,
+      style: 'font:inherit;padding:6px 10px;margin-right:10px',
+      onchange: (e: Event) => {
+        state.comparisonDate = (e.target as HTMLInputElement).value;
+        persist();
+        renderAll();
+      },
+    });
+    body.append(h('p', {}, [`${t('labFamily.comparisonDate.label')}: `, dateInput]), h('p', { class: 'small' }, [t('labFamily.comparisonDate.hint')]));
+
+    const grid = h('div', { class: 'grid grid--2' });
+    for (const office of ['KR', 'JP'] as const) {
+      const versions = c.claimVersions
+        .filter((v) => v.office === office && v.effectiveDate <= state.comparisonDate)
+        .sort((a, b) => (a.effectiveDate < b.effectiveDate ? -1 : 1));
+      const latest = versions[versions.length - 1];
+      const box = h('div', { class: 'card' + (office === 'KR' ? ' kr-panel' : ' jp-panel') });
+      if (latest) {
+        const span = spanOfCase(c, latest.originalTextSpanIds[0]);
+        box.append(h('h3', { class: 'mt-0' }, [`${office} — ${latest.id} (${latest.effectiveDate})`]));
+        if (span) {
+          box.append(h('p', { class: `orig ${span.originalLanguage === 'ko' ? 'orig--ko' : 'orig--ja'}` }, [span.originalText]));
+        }
+        box.append(h('p', { class: 'small mb-0' }, [latest.elements.map((e) => e.id).join(' + ')]));
+      } else {
+        box.append(h('p', { class: 'small' }, [t('labFamily.mixingWarning')]));
+      }
+      grid.append(box);
+    }
+    body.append(grid);
+  }
+
+  // ── Version selection ─────────────────────────────────────
+  function renderVersions() {
+    const body = document.getElementById('lab-versions-body')!;
+    clear(body);
+    const krSel = h('select', { style: 'font:inherit;padding:6px 10px;margin:0 10px 8px 0' });
+    for (const v of c.claimVersions.filter((x) => x.office === 'KR')) {
+      krSel.append(h('option', { value: v.id, selected: v.id === state.krVersion ? 'true' : undefined }, [`${v.id} · ${v.effectiveDate}`]));
+    }
+    const jpSel = h('select', { style: 'font:inherit;padding:6px 10px' });
+    for (const v of c.claimVersions.filter((x) => x.office === 'JP')) {
+      jpSel.append(h('option', { value: v.id, selected: v.id === state.jpVersion ? 'true' : undefined }, [`${v.id} · ${v.effectiveDate}`]));
+    }
+    const onChange = () => {
+      state.krVersion = (krSel as HTMLSelectElement).value;
+      state.jpVersion = (jpSel as HTMLSelectElement).value;
+      persist();
+      renderAll();
+    };
+    krSel.addEventListener('change', onChange);
+    jpSel.addEventListener('change', onChange);
+    body.append(krSel, jpSel);
+
+    const kr = c.claimVersions.find((v) => v.id === state.krVersion);
+    const jp = c.claimVersions.find((v) => v.id === state.jpVersion);
+    const later = [kr, jp].filter((v) => v && v.effectiveDate > state.comparisonDate);
+    if (later.length > 0) {
+      body.append(h('p', { class: 'callout callout--warn', role: 'status' }, [t('labFamily.mixingWarning')]));
+    }
+    body.append(
+      h('p', { class: 'small mb-0' }, [
+        `KR: ${kr ? kr.elements.map((e) => e.id).join('+') : '—'} · JP: ${jp ? jp.elements.map((e) => e.id).join('+') : '—'}`,
+      ]),
+    );
+  }
+
+  renderAll();
+</script>

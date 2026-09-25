@@ -1,0 +1,335 @@
+---
+import BaseLayout from '../components/BaseLayout.astro';
+import StatusBadge from '../components/StatusBadge.astro';
+import HeroImage from '../components/HeroImage.astro';
+import { langFromUrl, t } from '../i18n';
+
+const lang = langFromUrl(Astro.url);
+---
+<BaseLayout titleKeys={['nav.workspace', 'nav.siteName']} descKey="ws.sub" showCaseBar>
+  <div class="container">
+    <header class="page-head">
+      <StatusBadge kind="simulation" lang={lang} />
+      <h1>{t(lang, 'ws.title')}</h1>
+      <p class="lead">{t(lang, 'ws.sub')}</p>
+      <p class="callout callout--sim">{t(lang, 'common.demoRecordNote')}</p>
+    </header>
+
+    <HeroImage basename="human-review" lang={lang} altKey="images.review.alt" ratio="4-3" />
+
+    <section class="card" id="ws-role">
+      <h2 class="mt-0">{t(lang, 'ws.roleLabel')}</h2>
+      <p class="small">{t(lang, 'ws.roleHint')}</p>
+      <div id="ws-role-body"></div>
+    </section>
+
+    <section class="card" id="ws-blind">
+      <h2 class="mt-0">{t(lang, 'ws.blindTitle')}</h2>
+      <p class="small">{t(lang, 'ws.blindBody')}</p>
+      <div id="ws-blind-body"></div>
+    </section>
+
+    <section class="card" id="ws-decision">
+      <h2 class="mt-0">{t(lang, 'ws.decisionTitle')}</h2>
+      <p class="small">{t(lang, 'ws.decisionIntro')}</p>
+      <div id="ws-decision-body"></div>
+    </section>
+
+    <section class="card" id="ws-report">
+      <h2 class="mt-0">{t(lang, 'ws.reportTitle')}</h2>
+      <p class="small">{t(lang, 'ws.reportIntro')}</p>
+      <div id="ws-report-body"></div>
+    </section>
+
+    <div class="btn-row">
+      <button type="button" class="btn btn--small" id="ws-reset">{t(lang, 'ws.reset')}</button>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import { h, clear, spanOfCase, spanLocation, verdictChip } from '../lib/ui';
+  import { evaluateHarmony } from '../lib/evaluate';
+  import { cases } from '../data';
+  import { dicts } from '../i18n';
+  import { loadState, saveState, defaultState } from '../lib/state';
+
+  const lang = (new URLSearchParams(location.search).get('lang') || 'ko') as 'ko' | 'en' | 'ja';
+  const dict = dicts[lang] as Record<string, string>;
+  const t = (k: string): string => dict[k] ?? k;
+
+  let state = loadState();
+  if (!cases[state.caseId]) state.caseId = 'H-01';
+  const c = cases[state.caseId];
+  if (!c.claimVersions.some((v) => v.id === state.krVersion)) {
+    state.krVersion = c.claimVersions.find((v) => v.office === 'KR')?.id ?? '';
+    state.jpVersion = c.claimVersions.find((v) => v.office === 'JP')?.id ?? '';
+    state.comparisonDate = c.events.KR.find((e) => e.type === 'retrieval')?.date ?? '';
+  }
+  const persist = () => saveState(state);
+
+  const trace = () =>
+    evaluateHarmony({
+      case: c,
+      selectedVersions: { kr: state.krVersion, jp: state.jpVersion },
+      comparisonDate: state.comparisonDate,
+      documentAvailability: Object.fromEntries(state.missingDocs.map((x) => [x, 'missing' as const])),
+      translationVerification: state.translation,
+      reviewerEdits: { decision: state.reviewerDecision ?? undefined, challengeSpans: state.challengeSpans },
+    });
+
+  const REVIEW_DECISIONS = ['CONFIRMED_GAP', 'REJECTED', 'LEGAL_DIVERGENCE', 'DEFERRED'] as const;
+
+  function origCard(spanId: string): HTMLElement | null {
+    const span = spanOfCase(c, spanId);
+    if (!span) return null;
+    const cls = span.originalLanguage === 'ko' ? 'orig--ko' : span.originalLanguage === 'ja' ? 'orig--ja' : 'orig--en';
+    return h('div', { class: `orig ${cls}` }, [
+      h('span', { class: 'orig__lang' }, [spanLocation(c, spanId)]),
+      h('p', { style: 'margin:6px 0 0' }, [span.originalText]),
+      h('p', { class: 'gloss' }, [span.gloss[lang] ?? span.gloss.ko]),
+    ]);
+  }
+
+  function renderAll() {
+    renderRole();
+    renderBlind();
+    renderDecision();
+    renderReport();
+  }
+
+  // ── Role (virtual) ────────────────────────────────────────
+  function renderRole() {
+    const body = document.getElementById('ws-role-body')!;
+    clear(body);
+    const roles = [
+      { id: 'KR', label: t('ws.roleKr'), badge: 'badge--kr' },
+      { id: 'JP', label: t('ws.roleJp'), badge: 'badge--jp' },
+      { id: 'RESEARCHER', label: t('ws.roleResearcher'), badge: 'badge--office' },
+    ] as const;
+    for (const role of roles) {
+      const btn = h('button', {
+        class: `btn ${state.role === role.id ? 'btn--teal' : ''}`,
+        'aria-pressed': state.role === role.id ? 'true' : 'false',
+        onclick: () => {
+          state.role = role.id;
+          persist();
+          renderAll();
+        },
+      }, [`${state.role === role.id ? '● ' : ''}${role.label}`]);
+      body.append(btn, ' ');
+    }
+    body.append(h('p', { class: 'small' }, [t('ws.roleHint')]));
+  }
+
+  // ── Blind re-check ────────────────────────────────────────
+  function renderBlind() {
+    const body = document.getElementById('ws-blind-body')!;
+    clear(body);
+    if (!state.blindDone) {
+      body.append(
+        h('button', {
+          class: 'btn btn--teal',
+          onclick: () => {
+            state.blindDone = true;
+            persist();
+            renderAll();
+          },
+        }, [t('ws.blindButton')]),
+      );
+      return;
+    }
+    body.append(h('p', { class: 'callout callout--ok', role: 'status' }, [t('ws.blindDone')]));
+
+    // Blind view: only D1 + own country's claims and standards.
+    const own = state.role === 'KR' ? 'KR' : state.role === 'JP' ? 'JP' : null;
+    const grid = h('div', { class: 'grid grid--2' });
+    if (own) {
+      const ownClaim = c.claimVersions.find((v) => v.office === own && v.id === (own === 'KR' ? state.krVersion : state.jpVersion));
+      const profileSid = `${state.caseId.toLowerCase()}.${own.toLowerCase()}.legal-profile`;
+      grid.append(
+        h('div', {}, [
+          h('p', { class: 'small' }, [`${own} — ${t('ws.blindTitle')}`]),
+          ...(ownClaim ? [origCard(ownClaim.originalTextSpanIds[0])].filter(Boolean) : []),
+          ...(spanOfCase(c, profileSid) ? [origCard(profileSid)].filter(Boolean) : [
+            h('p', { class: 'small' }, [t(`ruleLayer.${own.toLowerCase()}Legal.desc`)]),
+          ]),
+        ]),
+      );
+    } else {
+      grid.append(h('p', { class: 'small' }, [t('ws.roleHint')]));
+    }
+    const d1 = c.priorArt.find((p) => p.origin === 'EXAMINER_CITED');
+    grid.append(
+      h('div', {}, [
+        h('p', { class: 'small' }, ['D1']),
+        ...(d1 ? d1.sourceSpanIds.map((sid) => origCard(sid)).filter(Boolean) : [h('p', { class: 'small' }, ['—'])]),
+      ]),
+    );
+    body.append(grid);
+
+    if (!state.groundsOpened) {
+      body.append(
+        h('button', {
+          class: 'btn',
+          onclick: () => {
+            state.groundsOpened = true;
+            persist();
+            renderAll();
+          },
+        }, [t('ws.openGroundsButton')]),
+        h('p', { class: 'small' }, [t('ws.openGroundsHint')]),
+      );
+    } else {
+      const citeSpan = `${state.caseId.toLowerCase()}.kr.dossier.cite`;
+      const jpSpan = `${state.caseId.toLowerCase()}.jp.dossier.citelist`;
+      body.append(
+        h('p', { class: 'small' }, [t('ws.openGroundsHint')]),
+        h('div', { class: 'grid grid--2' }, [
+          h('div', {}, [
+            ...(spanOfCase(c, citeSpan) ? [origCard(citeSpan)].filter(Boolean) : [h('p', { class: 'small' }, ['—'])]),
+          ]),
+          h('div', {}, [
+            ...(spanOfCase(c, jpSpan) ? [origCard(jpSpan)].filter(Boolean) : [h('p', { class: 'small' }, ['—'])]),
+          ]),
+        ]),
+      );
+    }
+  }
+
+  // ── Review decision ───────────────────────────────────────
+  function renderDecision() {
+    const body = document.getElementById('ws-decision-body')!;
+    clear(body);
+    if (!state.blindDone) {
+      body.append(h('p', { class: 'small' }, [t('ws.blindBody')]));
+      return;
+    }
+    const radios = h('div', { role: 'radiogroup', 'aria-label': t('ws.decisionTitle') });
+    for (const dec of REVIEW_DECISIONS) {
+      const label = h('label', { style: 'display:block;margin:6px 0;font-size:0.92rem' });
+      label.append(
+        h('input', {
+          type: 'radio',
+          name: 'ws-decision',
+          value: dec,
+          checked: state.reviewerDecision === dec ? 'true' : undefined,
+          onchange: () => {
+            state.reviewerDecision = dec;
+            persist();
+            renderAll();
+          },
+        }),
+        ' ',
+        h('strong', {}, [dec]),
+        ' — ',
+        t(`decision.${dec}.desc`),
+      );
+      radios.append(label);
+    }
+    const reason = h('textarea', {
+      style: 'width:100%;min-height:90px;font:inherit;padding:8px;border:1px solid var(--line-strong);border-radius:6px',
+      placeholder: t('ws.reasonPlaceholder'),
+      oninput: (e: Event) => {
+        state.reviewerReason = (e.target as HTMLTextAreaElement).value;
+      },
+    }, [state.reviewerReason]);
+    const record = h('button', {
+      class: 'btn btn--primary',
+      onclick: () => {
+        if (!state.reviewerDecision || state.reviewerReason.trim().length === 0) {
+          window.alert(t('ws.decideRequired'));
+          return;
+        }
+        persist();
+        renderAll();
+      },
+    }, [t('ws.decideButton')]);
+
+    body.append(radios, h('p', { class: 'small' }, [t('ws.reasonLabel')]), reason, h('div', { class: 'btn-row' }, [record]));
+    if (state.reviewerDecision && state.reviewerReason.trim().length > 0) {
+      body.append(h('p', { class: 'callout callout--ok', role: 'status' }, [t('ws.recorded')]));
+    }
+  }
+
+  // ── Difference summary report ─────────────────────────────
+  function buildReport() {
+    const tr = trace();
+    const kr = c.claimVersions.find((v) => v.id === state.krVersion);
+    const jp = c.claimVersions.find((v) => v.id === state.jpVersion);
+    const d1 = c.priorArt.find((p) => p.origin === 'EXAMINER_CITED');
+    const ai = c.priorArt.find((p) => p.origin === 'AI_DISCOVERED_AFTERWARD');
+    return {
+      caseId: state.caseId,
+      role: state.role,
+      familyCheck: `${c.familyLink.confidence} · ${kr?.id ?? ''} / ${jp?.id ?? ''}`,
+      comparisonDate: state.comparisonDate,
+      citationStatus: d1
+        ? `${d1.id} ${d1.origin}${d1.citedByOffice ? ` (${d1.citedByOffice})` : ''} @ ${d1.retrievedAt}` +
+          (ai ? ` | ${ai.id} ${ai.origin} @ ${ai.retrievedAt}` : '')
+        : '—',
+      originals: c.sourceSpans.slice(0, 40).map((s) => spanLocation(c, s.id)).join('; '),
+      ruleVersion: `${tr.ruleId} ${tr.ruleVersion}`,
+      divergence: tr.divergence,
+      verdict: tr.verdict,
+      humanReview: state.reviewerDecision ? `${state.reviewerDecision} — ${state.reviewerReason}` : null,
+      missingEvidence: tr.missingEvidence,
+      demoStatus: 'SIMULATION · ' + t('common.demoRecordNote'),
+    };
+  }
+
+  function renderReport() {
+    const body = document.getElementById('ws-report-body')!;
+    clear(body);
+    const report = buildReport();
+    const fields: Array<[string, string]> = [
+      [t('ws.reportField.familyCheck'), report.familyCheck],
+      [t('ws.reportField.comparisonDate'), report.comparisonDate],
+      [t('ws.reportField.citationStatus'), report.citationStatus],
+      [t('ws.reportField.ruleVersion'), report.ruleVersion],
+      [t('ws.reportField.humanReview'), report.humanReview ?? '—'],
+      [t('ws.reportField.missingEvidence'), report.missingEvidence.join(', ') || '—'],
+      [t('ws.reportField.demoStatus'), report.demoStatus],
+    ];
+    const table = h('table', { class: 'data' });
+    const tb = h('tbody');
+    for (const [k, v] of fields) {
+      tb.append(h('tr', {}, [h('th', {}, [k]), h('td', {}, [v])]));
+    }
+    table.append(tb);
+    const verdictBox = h('p', {}, [h('strong', {}, [t('labDisc.traceFields.verdict') + ': ']), verdictChip(lang, report.verdict as never)]);
+    body.append(verdictBox, table, h('p', { class: 'small' }, [t('ws.reportField.originals') + ': ' + report.originals.slice(0, 240) + '…']));
+
+    const exportJson = () => {
+      const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+      const a = h('a', { href: URL.createObjectURL(blob), download: `kj-eqh-report-${state.caseId}.json` }) as HTMLAnchorElement;
+      a.click();
+    };
+    const exportMd = () => {
+      const lines = [`# KJ-EQH ${t('ws.reportTitle')} — ${state.caseId}`, ''];
+      for (const [k, v] of fields) lines.push(`- **${k}**: ${v}`);
+      lines.push('', `> ${t('ws.reportIntro')}`, `> ${t('common.demoRecordNote')}`);
+      const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
+      const a = h('a', { href: URL.createObjectURL(blob), download: `kj-eqh-report-${state.caseId}.md` }) as HTMLAnchorElement;
+      a.click();
+    };
+    body.append(
+      h('div', { class: 'btn-row no-print' }, [
+        h('button', { class: 'btn btn--small', onclick: exportJson }, [t('ws.exportJson')]),
+        h('button', { class: 'btn btn--small', onclick: exportMd }, [t('ws.exportMd')]),
+        h('button', { class: 'btn btn--small', onclick: () => window.print() }, [t('ws.printReport')]),
+      ]),
+    );
+  }
+
+  document.getElementById('ws-reset')?.addEventListener('click', () => {
+    state = defaultState();
+    state.krVersion = c.claimVersions.find((v) => v.office === 'KR')?.id ?? '';
+    state.jpVersion = c.claimVersions.find((v) => v.office === 'JP')?.id ?? '';
+    state.comparisonDate = c.events.KR.find((e) => e.type === 'retrieval')?.date ?? '';
+    persist();
+    renderAll();
+  });
+
+  renderAll();
+</script>

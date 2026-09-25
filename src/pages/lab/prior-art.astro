@@ -1,0 +1,141 @@
+---
+import BaseLayout from '../../components/BaseLayout.astro';
+import StatusBadge from '../../components/StatusBadge.astro';
+import HeroImage from '../../components/HeroImage.astro';
+import { langFromUrl, t } from '../../i18n';
+
+const lang = langFromUrl(Astro.url);
+---
+<BaseLayout titleKeys={['nav.labPriorArt', 'nav.siteName']} descKey="labPriorArt.sub" showCaseBar>
+  <div class="container">
+    <header class="page-head">
+      <StatusBadge kind="simulation" lang={lang} />
+      <h1>{t(lang, 'labPriorArt.title')}</h1>
+      <p class="lead">{t(lang, 'labPriorArt.sub')}</p>
+    </header>
+
+    <HeroImage basename="evidence-bridge" lang={lang} altKey="images.evidence.alt" ratio="3-2" />
+
+    <div id="lab-case"></div>
+
+    <section class="grid grid--2fixed">
+      <div class="card kr-panel" id="lab-zone-examiner"></div>
+      <div class="card jp-panel" id="lab-zone-ai"></div>
+    </section>
+
+    <div id="lab-trace"></div>
+
+    <div class="btn-row">
+      <a class="btn btn--teal" href="/lab/discrepancies/">{t(lang, 'labPriorArt.nextStep')} <span aria-hidden="true">→</span></a>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import { h, clear, spanOfCase, spanLocation } from '../../lib/ui';
+  import { initLab, renderCaseSelector, renderLabTraceCard, mount } from '../../lib/lab-common';
+  import type { PriorArtRecord } from '../../data/types';
+
+  const ctx = initLab();
+  const { lang, t, state, c, evalNow, persist } = ctx;
+
+  function renderAll() {
+    mount('lab-case', renderCaseSelector(ctx, () => location.reload()));
+    renderZone('lab-zone-examiner', c.priorArt.filter((p) => p.origin === 'EXAMINER_CITED'), true);
+    renderZone('lab-zone-ai', c.priorArt.filter((p) => p.origin === 'AI_DISCOVERED_AFTERWARD'), false);
+    mount('lab-trace', renderLabTraceCard(ctx));
+  }
+
+  function availabilityLabel(a: string): string {
+    return a === 'available' ? t('labPriorArt.available') : a === 'partial' ? t('labPriorArt.partial') : t('labPriorArt.none');
+  }
+
+  function renderZone(hostId: string, records: PriorArtRecord[], examinerZone: boolean) {
+    const host = document.getElementById(hostId)!;
+    clear(host);
+    host.append(h('h2', { class: 'mt-0' }, [examinerZone ? t('labPriorArt.tabExaminer') : t('labPriorArt.tabAi')]));
+    if (records.length === 0) {
+      host.append(h('p', { class: 'small' }, ['—']));
+      return;
+    }
+    for (const rec of records) {
+      host.append(h('h3', {}, [`${rec.id} — ${rec.title[lang] ?? rec.title.ko}`]));
+      const citedBy = rec.citedByOffice ? ` (${rec.citedByOffice})` : '';
+      const table = h('table', { class: 'data' });
+      const rows: Array<[string, string | HTMLElement]> = [
+        [t('origin.EXAMINER_CITED'), h('span', { class: examinerZone ? 'badge badge--kr' : 'badge badge--ai' }, [t(examinerZone ? 'origin.EXAMINER_CITED' : 'origin.AI_DISCOVERED_AFTERWARD')])],
+        [t('labPriorArt.pubDate'), rec.publicationDate],
+        [t('labPriorArt.priorityDate'), rec.priorityDate],
+        [t('labPriorArt.family'), rec.family],
+        [t('labPriorArt.citedElements'), rec.elementMappings.map((m) => m.elementId).join(', ') || '—'],
+        [t('labPriorArt.location'), rec.sourceSpanIds.map((sid) => spanLocation(c, sid)).join(' · ')],
+        [t('labPriorArt.retrievedAt'), rec.retrievedAt],
+        [t('labPriorArt.availability'), availabilityLabel(rec.availability)],
+      ];
+      const tb = h('tbody');
+      for (const [k, v] of rows) {
+        const tr = h('tr');
+        tr.append(h('th', {}, [k]), h('td', {}, [v]));
+        tb.append(tr);
+      }
+      table.append(tb);
+      host.append(table);
+
+      // Original span + element highlight + back-to-rule bidirectional nav
+      for (const sid of rec.sourceSpanIds) {
+        const span = spanOfCase(c, sid);
+        if (!span) continue;
+        const cls = span.originalLanguage === 'ko' ? 'orig--ko' : span.originalLanguage === 'ja' ? 'orig--ja' : 'orig--en';
+        const challenged = state.challengeSpans.includes(sid);
+        const box = h('div', { style: 'margin:10px 0' });
+        box.append(
+          h('div', { class: `orig ${cls}`, id: `pa-span-${sid}` }, [
+            h('span', { class: 'orig__lang' }, [spanLocation(c, sid)]),
+            h('p', { style: 'margin:6px 0 0' }, [span.originalText]),
+            h('p', { class: 'gloss' }, [span.gloss[lang] ?? span.gloss.ko]),
+          ]),
+          h('div', { class: 'btn-row', style: 'margin:6px 0' }, [
+            h('button', {
+              class: 'btn btn--small',
+              onclick: () => {
+                // highlight the element mapped to this span in the trace
+                document.getElementById('lab-trace')?.scrollIntoView({ behavior: 'smooth' });
+              },
+            }, [t('labPriorArt.highlight')]),
+            h('button', {
+              class: 'btn btn--small',
+              onclick: () => {
+                document.getElementById('lab-trace')?.scrollIntoView({ behavior: 'smooth' });
+              },
+            }, [t('labPriorArt.backToRule')]),
+            h('button', {
+              class: `btn btn--small ${challenged ? 'btn--teal' : ''}`,
+              onclick: () => {
+                // Fact edit: "this passage is not E3" -> mapping edited, trace recomputed
+                if (challenged) {
+                  state.challengeSpans = state.challengeSpans.filter((x) => x !== sid);
+                } else {
+                  state.challengeSpans = [...new Set([...state.challengeSpans, sid])];
+                }
+                persist();
+                renderAll();
+              },
+            }, [challenged ? t('labPriorArt.challengeUndo') : t('labPriorArt.challenge')]),
+          ]),
+        );
+        if (challenged) {
+          box.append(h('p', { class: 'callout callout--warn', role: 'status' }, [t('labPriorArt.challengeEffect')]));
+        }
+        host.append(box);
+      }
+    }
+    host.append(
+      h('p', { class: 'callout callout--sim' }, [
+        examinerZone ? t('origin.EXAMINER_CITED.hint') : t('origin.AI_DISCOVERED_AFTERWARD.hint'),
+      ]),
+      h('p', { class: 'small mb-0' }, [t('labPriorArt.partialHint')]),
+    );
+  }
+
+  renderAll();
+</script>

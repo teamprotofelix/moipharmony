@@ -1,0 +1,42 @@
+---
+import type { Lang } from '../i18n';
+import { t } from '../i18n';
+
+interface Props {
+  kind: 'simulation' | 'proposal' | 'practice' | 'live' | 'target' | 'measured' | 'ai' | 'fictional';
+  lang: Lang;
+  /** If true, renders only the short label (no hint title). */
+  compact?: boolean;
+}
+
+const { kind, lang, compact = false } = Astro.props;
+
+const keyMap = {
+  simulation: 'status.simulation',
+  proposal: 'status.researchProposal',
+  practice: 'status.publicPractice',
+  live: 'status.liveAiDraft',
+  target: 'status.target',
+  measured: 'status.measured',
+  ai: 'labClaims.aiDraftBadge',
+  fictional: 'labCase.synthetic',
+} as const;
+
+const clsMap: Record<string, string> = {
+  simulation: 'badge--simulation',
+  proposal: 'badge--proposal',
+  practice: 'badge--practice',
+  live: 'badge--live',
+  target: 'badge--target',
+  measured: 'badge--measured',
+  ai: 'badge--ai',
+  fictional: 'badge--fictional',
+};
+---
+<span
+  class:list={['badge', clsMap[kind]]}
+  title={compact ? undefined : t(lang, keyMap[kind] + 'Hint' as never)}
+  data-i18n-title={compact ? undefined : keyMap[kind] + 'Hint'}
+>
+  {t(lang, keyMap[kind])}
+</span>

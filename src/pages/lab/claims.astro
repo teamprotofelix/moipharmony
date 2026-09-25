@@ -1,0 +1,277 @@
+---
+import BaseLayout from '../../components/BaseLayout.astro';
+import StatusBadge from '../../components/StatusBadge.astro';
+import HeroImage from '../../components/HeroImage.astro';
+import { langFromUrl, t } from '../../i18n';
+
+const lang = langFromUrl(Astro.url);
+---
+<BaseLayout titleKeys={['nav.labClaims', 'nav.siteName']} descKey="labClaims.sub" showCaseBar>
+  <div class="container">
+    <header class="page-head">
+      <StatusBadge kind="simulation" lang={lang} />
+      <h1>{t(lang, 'labClaims.title')}</h1>
+      <p class="lead">{t(lang, 'labClaims.sub')}</p>
+    </header>
+
+    <HeroImage basename="claim-alignment" lang={lang} altKey="images.claims.alt" ratio="3-2" />
+
+    <div id="lab-case"></div>
+
+    <section class="card" id="lab-claims">
+      <div class="tabs" role="tablist" id="lab-claims-tabs"></div>
+      <div id="lab-claims-panels"></div>
+    </section>
+
+    <section class="card" id="lab-translation">
+      <h2 class="mt-0">{t(lang, 'labClaims.translationSim.title')}</h2>
+      <p class="small">{t(lang, 'labClaims.translationSim.body')}</p>
+      <div id="lab-translation-body"></div>
+    </section>
+
+    <div id="lab-trace"></div>
+
+    <div class="btn-row">
+      <a class="btn btn--teal" href="/lab/prior-art/">{t(lang, 'labClaims.nextStep')} <span aria-hidden="true">→</span></a>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import { h, clear, spanOfCase, spanLocation } from '../../lib/ui';
+  import { initLab, renderCaseSelector, renderLabTraceCard, mount } from '../../lib/lab-common';
+  import type { ClaimVersion, SourceSpan } from '../../data/types';
+
+  const ctx = initLab();
+  const { lang, d, t, state, c, evalNow, persist } = ctx;
+
+  let activeTab: 'kr' | 'jp' | 'map' = 'kr';
+
+  function renderAll() {
+    mount('lab-case', renderCaseSelector(ctx, () => location.reload()));
+    renderTabs();
+    renderPanels();
+    renderTranslation();
+    mount('lab-trace', renderLabTraceCard(ctx));
+  }
+
+  function renderTabs() {
+    const tabs = document.getElementById('lab-claims-tabs')!;
+    clear(tabs);
+    const tabDefs = [
+      { id: 'kr', label: t('labClaims.tabKr') },
+      { id: 'jp', label: t('labClaims.tabJp') },
+      { id: 'map', label: t('labClaims.tabMap') },
+    ] as const;
+    for (const tab of tabDefs) {
+      tabs.append(
+        h('button', {
+          role: 'tab',
+          'aria-selected': activeTab === tab.id ? 'true' : 'false',
+          onclick: () => {
+            activeTab = tab.id;
+            renderTabs();
+            renderPanels();
+          },
+        }, [tab.label]),
+      );
+    }
+  }
+
+  function highlightText(full: SourceSpan, phrases: SourceSpan[]): string {
+    let html = full.originalText;
+    for (const p of phrases) {
+      const idx = html.indexOf(p.originalText);
+      if (idx >= 0) {
+        html =
+          html.slice(0, idx) +
+          `<mark class="span-hl" data-office="${full.office}" data-span="${p.id}">${p.originalText}</mark>` +
+          html.slice(idx + p.originalText.length);
+      }
+    }
+    return html;
+  }
+
+  function versionRow(office: 'KR' | 'JP', versionId: string): HTMLElement {
+    const box = h('div', {});
+    const versions = c.claimVersions.filter((v) => v.office === office);
+    const sel = h('select', { style: 'font:inherit;padding:6px 10px;margin-bottom:8px' });
+    for (const v of versions) {
+      sel.append(h('option', { value: v.id, selected: v.id === versionId ? 'true' : undefined }, [`${v.id} · ${v.effectiveDate}`]));
+    }
+    sel.addEventListener('change', () => {
+      if (office === 'KR') state.krVersion = sel.value;
+      else state.jpVersion = sel.value;
+      persist();
+      renderPanels();
+      renderTranslation();
+      mount('lab-trace', renderLabTraceCard(ctx));
+    });
+    box.append(h('p', { style: 'margin:0 0 4px' }, [t('labClaims.versionLabel')]), sel);
+
+    const v = c.claimVersions.find((x) => x.id === versionId);
+    if (v) {
+      const full = spanOfCase(c, v.originalTextSpanIds[0]);
+      if (full) {
+        const phrases = v.elements
+          .map((el) => el.sourceSpanIds.map((sid) => spanOfCase(c, sid)))
+          .flat()
+          .filter((x): x is SourceSpan => Boolean(x));
+        const cls = full.originalLanguage === 'ko' ? 'orig--ko' : 'orig--ja';
+        box.append(
+          h('div', { class: `orig ${cls}`, html: highlightText(full, phrases) }),
+          h('p', { class: 'small' }, [t('labClaims.originalKept')]),
+        );
+      }
+      // Diff vs the other versions of the same office
+      const diffs = h('div', {});
+      const other = versions.filter((x) => x.id !== versionId);
+      for (const o of other) {
+        const added = o.elements.filter((e) => !v.elements.some((x) => x.id === e.id));
+        const removed = v.elements.filter((e) => !o.elements.some((x) => x.id === e.id));
+        const same = v.elements.filter((e) => o.elements.some((x) => x.id === e.id && x.label.ko === e.label.ko));
+        if (added.length === 0 && removed.length === 0 && same.length === v.elements.length) continue;
+        diffs.append(
+          h('p', { class: 'small', style: 'margin:6px 0 0' }, [
+            `${t('labClaims.diffLabel')} ${versionId} ↔ ${o.id}: `,
+            ...(added.length ? [h('span', { class: 'diff-add' }, [`+${added.map((e) => e.id).join('+')} ${t('labClaims.added')}`]), ' '] : []),
+            ...(removed.length ? [h('span', { class: 'diff-rem' }, [`−${removed.map((e) => e.id).join('+')} ${t('labClaims.removed')}`]), ' '] : []),
+            ...(same.length && added.length + removed.length === 0 ? [h('span', { class: 'diff-same' }, [t('labClaims.unchanged')])] : []),
+          ]),
+        );
+      }
+      box.append(diffs);
+    }
+    return box;
+  }
+
+  function elementCard(elId: string): HTMLElement {
+    const kr = c.claimVersions.find((v) => v.id === state.krVersion);
+    const jp = c.claimVersions.find((v) => v.id === state.jpVersion);
+    const krEl = kr?.elements.find((e) => e.id === elId);
+    const jpEl = jp?.elements.find((e) => e.id === elId);
+
+    // Confidence: uncertain when translation simulation is on (for E3),
+    // certain when both sides have the element, none when missing on one side.
+    let confidence: 'certain' | 'uncertain' | 'none' = 'certain';
+    if (!krEl || !jpEl) confidence = 'none';
+    else if (elId === 'E3' && state.translation === 'uncertain') confidence = 'uncertain';
+
+    const meta =
+      confidence === 'certain'
+        ? t('labClaims.mappingCertain')
+        : confidence === 'uncertain'
+          ? t('labClaims.mappingUncertain')
+          : t('labClaims.mappingNone');
+
+    const card = h('div', { class: `el-card el-card--${confidence}` });
+    card.append(
+      h('span', { class: 'el-card__id' }, [elId]),
+      h('div', { style: 'flex:1' }, [
+        h('div', { class: 'el-card__label' }, [
+          krEl ? spanText(krEl.sourceSpanIds) : '—',
+          ' ↔ ',
+          jpEl ? spanText(jpEl.sourceSpanIds) : '—',
+        ]),
+        h('div', { class: 'el-card__meta' }, [
+          meta,
+          ' · ',
+          h('span', { class: 'badge badge--ai' }, [t('labClaims.aiDraftBadge')]),
+        ]),
+      ]),
+    );
+    card.addEventListener('click', () => {
+      // Jump to the exact original passages (bidirectional navigation)
+      window.scrollTo({ top: document.getElementById('lab-claims')?.offsetTop ?? 0 });
+      activeTab = 'kr';
+      renderTabs();
+      renderPanels();
+    });
+    return card;
+  }
+
+  function spanText(spanIds: string[]): string {
+    const spans = spanIds.map((sid) => spanOfCase(c, sid)).filter(Boolean);
+    return spans.map((s) => s!.originalText).join(' ');
+  }
+
+  function renderPanels() {
+    const panels = document.getElementById('lab-claims-panels')!;
+    clear(panels);
+    if (activeTab === 'kr' || activeTab === 'jp') {
+      const grid = h('div', { class: 'grid grid--2' });
+      grid.append(
+        h('div', { class: 'card kr-panel' }, [h('h3', { class: 'mt-0' }, ['KR']), versionRow('KR', state.krVersion)]),
+        h('div', { class: 'card jp-panel' }, [h('h3', { class: 'mt-0' }, ['JP']), versionRow('JP', state.jpVersion)]),
+      );
+      panels.append(grid, h('p', { class: 'small' }, [t('labClaims.aiDraftHint')]));
+    } else {
+      const elementIds = Array.from(
+        new Set([
+          ...(c.claimVersions.find((v) => v.id === state.krVersion)?.elements.map((e) => e.id) ?? []),
+          ...(c.claimVersions.find((v) => v.id === state.jpVersion)?.elements.map((e) => e.id) ?? []),
+        ]),
+      );
+      const box = h('div', {});
+      for (const elId of elementIds) box.append(elementCard(elId));
+
+      // Prior-art mapping of D1 (AI draft badge)
+      const d1 = c.priorArt.find((p) => p.origin === 'EXAMINER_CITED');
+      if (d1 && d1.officeMappingViews) {
+        const views = h('div', { class: 'card card--soft' });
+        views.append(h('h4', { class: 'mt-0' }, [`D1 — ${spanLocation(c, d1.sourceSpanIds[0])}`]));
+        for (const office of ['KR', 'JP'] as const) {
+          const view = d1.officeMappingViews[office] ?? [];
+          views.append(
+            h('p', { class: 'small' }, [
+              h('span', { class: `badge badge--${office.toLowerCase()}` }, [office]),
+              ': ',
+              view.map((m) => m.elementId).join(', ') || '—',
+            ]),
+          );
+        }
+        views.append(h('p', { class: 'small mb-0' }, [t('labClaims.aiDraftHint')]));
+        box.append(views);
+      }
+      panels.append(box);
+    }
+  }
+
+  function renderTranslation() {
+    const body = document.getElementById('lab-translation-body')!;
+    clear(body);
+    const on = state.translation === 'uncertain';
+    body.append(
+      h('div', { class: 'btn-row', style: 'margin:8px 0' }, [
+        h('button', {
+          class: `btn ${on ? '' : 'btn--teal'}`,
+          onclick: () => {
+            state.translation = on ? 'verified' : 'uncertain';
+            persist();
+            renderAll();
+          },
+        }, [on ? t('labClaims.translationSim.undo') : t('labClaims.translationSim.toggle')]),
+      ]),
+    );
+    if (on) {
+      const jpE3 = spanOfCase(c, c.claimVersions.find((v) => v.id === state.jpVersion)?.elements.find((e) => e.id === 'E3')?.sourceSpanIds[0] ?? '');
+      body.append(
+        h('div', { class: 'callout callout--warn', role: 'status' }, [
+          h('p', { style: 'margin:0 0 6px' }, [t('labClaims.translationSim.after')]),
+          ...(jpE3
+            ? [
+                h('p', { class: 'orig orig--ja', style: 'margin:6px 0' }, [
+                  '「適応サンプリング」',
+                ]),
+                h('p', { class: 'small' }, [
+                  t('labClaims.translationSim.afterHint'),
+                ]),
+              ]
+            : []),
+        ]),
+      );
+    }
+  }
+
+  renderAll();
+</script>

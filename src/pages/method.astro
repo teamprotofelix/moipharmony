@@ -1,0 +1,90 @@
+---
+import BaseLayout from '../components/BaseLayout.astro';
+import StatusBadge from '../components/StatusBadge.astro';
+import HeroImage from '../components/HeroImage.astro';
+import { langFromUrl, t } from '../i18n';
+
+const lang = langFromUrl(Astro.url);
+const metricIds = ['m1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7', 'm8', 'm9', 'm10', 'm11', 'm12'] as const;
+const stageIds = [0, 1, 2, 3, 4, 5] as const;
+---
+<BaseLayout titleKeys={['nav.method', 'nav.siteName']} descKey="method.sub">
+  <div class="container">
+    <header class="page-head">
+      <StatusBadge kind="proposal" lang={lang} />
+      <StatusBadge kind="target" lang={lang} />
+      <h1>{t(lang, 'method.title')}</h1>
+      <p class="lead">{t(lang, 'method.sub')}</p>
+    </header>
+
+    <HeroImage basename="research-horizon" lang={lang} altKey="images.horizon.alt" ratio="21-9" />
+
+    <section aria-labelledby="metrics-title">
+      <h2 id="metrics-title">{t(lang, 'method.metricsTitle')}</h2>
+      <p class="small">{t(lang, 'method.metricsIntro')}</p>
+      <p class="callout callout--sim">{t(lang, 'method.simNote')}</p>
+
+      {metricIds.map((m) => (
+        <details class="expander">
+          <summary>
+            {t(lang, `method.${m}.name` as never)}
+            <span class="badge badge--target">{t(lang, 'status.target')}</span>
+          </summary>
+          <div class="expander__body">
+            <dl class="expander__field">
+              <dt>{t(lang, 'method.defLabel')}</dt>
+              <dd><strong class="mono">{t(lang, `method.${m}.def` as never)}</strong></dd>
+              <dt>{t(lang, 'method.denomLabel')}</dt>
+              <dd>{t(lang, `method.${m}.denom` as never)}</dd>
+              <dt>{t(lang, 'method.exLabel')}</dt>
+              <dd>{t(lang, `method.${m}.ex` as never)}</dd>
+              <dt>{t(lang, 'method.goldLabel')}</dt>
+              <dd>{t(lang, `method.${m}.gold` as never)}</dd>
+              <dt>{t(lang, 'method.humanLabel')}</dt>
+              <dd>{t(lang, `method.${m}.human` as never)}</dd>
+              <dt>{t(lang, 'method.statusLabel')}</dt>
+              <dd>{t(lang, `method.${m}.status` as never)}</dd>
+            </dl>
+          </div>
+        </details>
+      ))}
+    </section>
+
+    <section class="card" aria-labelledby="tm-title">
+      <h2 id="tm-title" class="mt-0">{t(lang, 'method.targetMeasured')}</h2>
+      <p class="small">{t(lang, 'method.targetHint')}</p>
+      <div class="grid grid--2">
+        <div class="card card--soft" style="margin:0">
+          <h3 class="mt-0"><span class="badge badge--target">{t(lang, 'status.target')}</span></h3>
+          <p class="small mb-0">
+            {t(lang, 'method.targetHint')}
+          </p>
+        </div>
+        <div class="card card--soft" style="margin:0">
+          <h3 class="mt-0"><span class="badge badge--measured">{t(lang, 'status.measured')}</span></h3>
+          <p class="mb-0"><strong>{t(lang, 'method.measuredEmpty')}</strong></p>
+          <p class="small mb-0">{t(lang, 'method.measuredEmptyHint')}</p>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="roadmap-title">
+      <h2 id="roadmap-title">{t(lang, 'method.roadmapTitle')}</h2>
+      <p class="small">{t(lang, 'method.roadmapIntro')}</p>
+      <div class="card">
+        <ol class="roadmap">
+          {stageIds.map((s) => (
+            <li>
+              <span class="rm-num">{s + 1}</span>
+              <div class="rm-body">
+                <strong>{t(lang, `method.stage${s}` as never)}</strong> — <span data-i18n={`method.stage${s}.desc`}>{t(lang, `method.stage${s}.desc` as never)}</span>
+                <p class="rm-go">✓ {t(lang, 'method.goLabel')}: <span data-i18n={`method.go${s}`}>{t(lang, `method.go${s}` as never)}</span></p>
+                <p class="rm-nogo">✕ {t(lang, 'method.noGoLabel')}: <span data-i18n={`method.noGo${s}`}>{t(lang, `method.noGo${s}` as never)}</span></p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+  </div>
+</BaseLayout>

@@ -1,0 +1,154 @@
+---
+import BaseLayout from '../../components/BaseLayout.astro';
+import StatusBadge from '../../components/StatusBadge.astro';
+import HeroImage from '../../components/HeroImage.astro';
+import { langFromUrl, t } from '../../i18n';
+
+const lang = langFromUrl(Astro.url);
+---
+<BaseLayout titleKeys={['nav.labDiscrepancies', 'nav.siteName']} descKey="labDisc.sub" showCaseBar>
+  <div class="container">
+    <header class="page-head">
+      <StatusBadge kind="simulation" lang={lang} />
+      <h1>{t(lang, 'labDisc.title')}</h1>
+      <p class="lead">{t(lang, 'labDisc.sub')}</p>
+    </header>
+
+    <HeroImage basename="evidence-bridge" lang={lang} altKey="images.evidence.alt" ratio="3-2" />
+
+    <div id="lab-case"></div>
+
+    <section class="card" id="lab-classes">
+      <h2 class="mt-0">{t(lang, 'labDisc.classesTitle')}</h2>
+      <div id="lab-classes-body"></div>
+    </section>
+
+    <section class="card" id="lab-order">
+      <h2 class="mt-0">{t(lang, 'labDisc.orderTitle')}</h2>
+      <div id="lab-order-body"></div>
+      <p class="callout callout--warn mb-0">{t(lang, 'labDisc.orderHint')}</p>
+    </section>
+
+    <section class="card" id="lab-cause">
+      <h2 class="mt-0">{t(lang, 'labDisc.causeGraphTitle')}</h2>
+      <p class="small">{t(lang, 'labDisc.causeGraphHint')}</p>
+      <div id="lab-cause-body"></div>
+    </section>
+
+    <section class="card" id="lab-verdicts">
+      <h2 class="mt-0">{t(lang, 'labDisc.traceFields.verdict')}</h2>
+      <div id="lab-verdicts-body"></div>
+    </section>
+
+    <div id="lab-trace"></div>
+
+    <div class="btn-row">
+      <a class="btn btn--teal" href="/lab/rules/">{t(lang, 'labDisc.nextStep')} <span aria-hidden="true">→</span></a>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import { h, clear } from '../../lib/ui';
+  import { initLab, renderCaseSelector, renderLabTraceCard, mount } from '../../lib/lab-common';
+
+  const ctx = initLab();
+  const { lang, t, state, c, evalNow } = ctx;
+
+  const CLASSES = [
+    'DATA_DIVERGENCE',
+    'CLAIM_VERSION_DIVERGENCE',
+    'SEARCH_DIVERGENCE',
+    'FACT_DIVERGENCE',
+    'LEGAL_PROFILE_DIVERGENCE',
+    'QUALITY_DEFECT_CANDIDATE',
+    'UNKNOWN',
+  ] as const;
+
+  const VERDICTS = ['TRUE', 'FALSE', 'UNKNOWN', 'NOT_APPLICABLE'] as const;
+
+  function renderAll() {
+    mount('lab-case', renderCaseSelector(ctx, () => location.reload()));
+    const trace = evalNow();
+    renderClasses(trace);
+    renderOrder(trace);
+    renderCause(trace);
+    renderVerdicts(trace);
+    mount('lab-trace', renderLabTraceCard(ctx));
+  }
+
+  function renderClasses(trace: ReturnType<typeof evalNow>) {
+    const body = document.getElementById('lab-classes-body')!;
+    clear(body);
+    const grid = h('div', { class: 'grid grid--3' });
+    for (const cls of CLASSES) {
+      const active = trace.divergence.includes(cls);
+      const card = h('div', { class: `card${active ? ' teal-panel' : ''}`, style: 'margin:0;padding:14px 16px' });
+      card.append(
+        h('p', { class: 'cls-chip' + (active ? ' cls-chip--active' : ''), style: 'margin:0 0 8px' }, [cls]),
+        h('p', { class: 'small mb-0' }, [t(`cls.${cls}.desc`)]),
+      );
+      grid.append(card);
+    }
+    body.append(grid);
+  }
+
+  function renderOrder(trace: ReturnType<typeof evalNow>) {
+    const body = document.getElementById('lab-order-body')!;
+    clear(body);
+    // Which stage the trace stopped at (derived from the explanation keys)
+    const stoppedAt = (() => {
+      const keys = trace.explanationKeys;
+      if (keys.includes('UNKNOWN_DATA_RESTRICTED') || keys.includes('DATA_MISSING')) return 0;
+      if (keys.includes('UNKNOWN_FAMILY')) return 1;
+      if (keys.includes('MIXED_TIMING') || trace.divergence.includes('CLAIM_VERSION_DIVERGENCE')) return 1;
+      if (keys.includes('D1_NOT_AVAILABLE_AT_TIME') || keys.includes('NO_CITATION_DIFFERENCE')) return 2;
+      if (keys.includes('E3_DISCLOSURE_UNCONFIRMED') || keys.includes('TRANSLATION_UNCERTAIN') || keys.includes('TRANSLATION_VERIFICATION_MISSING')) return 3;
+      if (keys.includes('LEGAL_DIVERGENCE_JUSTIFIED') || trace.divergence.includes('LEGAL_PROFILE_DIVERGENCE')) return 4;
+      return 5;
+    })();
+    const ol = h('ol');
+    for (let i = 0; i <= 5; i++) {
+      const li = h('li', { style: i === stoppedAt ? 'font-weight:800' : undefined }, [t(`labDisc.order${i}`)]);
+      if (i === stoppedAt) li.append(h('span', { class: 'badge badge--simulation' }, [t('verdict.' + trace.verdict)]));
+      ol.append(li);
+    }
+    body.append(ol);
+  }
+
+  function renderCause(trace: ReturnType<typeof evalNow>) {
+    const body = document.getElementById('lab-cause-body')!;
+    clear(body);
+    const graph = h('div', { class: 'causegraph', role: 'status' });
+    if (trace.divergence.length === 0) {
+      graph.append(h('p', { class: 'small mb-0' }, [t('labDisc.noSignal')]));
+    } else {
+      for (let i = 0; i < trace.divergence.length; i++) {
+        if (i > 0) graph.append(h('span', { class: 'arrow' }, ['→']));
+        graph.append(h('span', { class: 'cls-chip cls-chip--active' }, [trace.divergence[i]]));
+      }
+      graph.append(h('span', { class: 'arrow' }, ['→']));
+      graph.append(h('span', { class: `verdict verdict--${trace.verdict}` }, [trace.verdict]));
+    }
+    body.append(graph);
+  }
+
+  function renderVerdicts(trace: ReturnType<typeof evalNow>) {
+    const body = document.getElementById('lab-verdicts-body')!;
+    clear(body);
+    const grid = h('div', { class: 'grid grid--2' });
+    for (const v of VERDICTS) {
+      const active = trace.verdict === v;
+      const card = h('div', { class: 'card card--soft', style: active ? 'outline:2px solid var(--teal);margin:0' : 'margin:0' });
+      card.append(
+        h('p', { style: 'margin:0 0 6px' }, [h('span', { class: `verdict verdict--${v}` }, [t(`verdict.${v}`)])]),
+        h('p', { class: 'small', style: 'margin:0 0 6px' }, [t(`verdict.${v}.desc`)]),
+        h('p', { class: 'verdict-next', style: 'margin:0' }, [`→ ${t(`verdict.${v}.next`)}`]),
+      );
+      grid.append(card);
+    }
+    body.append(grid);
+  }
+
+  renderAll();
+</script>

@@ -1,0 +1,66 @@
+---
+import BaseLayout from '../components/BaseLayout.astro';
+import StatusBadge from '../components/StatusBadge.astro';
+import HeroImage from '../components/HeroImage.astro';
+import { langFromUrl, t } from '../i18n';
+
+const lang = langFromUrl(Astro.url);
+const chainKeys = ['home.chain0', 'home.chain1', 'home.chain2', 'home.chain3', 'home.chain4', 'home.chain5'] as const;
+---
+<BaseLayout titleKeys={['nav.siteName']} descKey="home.sub">
+  <div class="container">
+    <header class="page-head">
+      <StatusBadge kind="simulation" lang={lang} />
+      <StatusBadge kind="proposal" lang={lang} />
+      <h1>{t(lang, 'home.question')}</h1>
+      <p class="lead">{t(lang, 'home.sub')}</p>
+      <div class="btn-row">
+        <a class="btn btn--teal" href="/experience/">{t(lang, 'home.ctaExperience')} <span aria-hidden="true">→</span></a>
+        <a class="btn" href="/research/">{t(lang, 'home.ctaResearch')}</a>
+      </div>
+    </header>
+
+    <HeroImage basename="harmony-hero" lang={lang} altKey="images.hero.alt" ratio="16-9" />
+
+    <section class="card" aria-labelledby="chain-title">
+      <h2 id="chain-title">{t(lang, 'home.chainTitle')}</h2>
+      <ol>
+        {chainKeys.map((k) => (
+          <li><strong>{t(lang, k)}</strong></li>
+        ))}
+      </ol>
+      <p class="small mb-0">{t(lang, 'learn.takeaway')}</p>
+    </section>
+
+    <section class="card" aria-labelledby="explain-title">
+      <h2 id="explain-title">{t(lang, 'home.explainTitle')}</h2>
+      <p>{t(lang, 'home.explainBody')}</p>
+      <p class="small mb-0"><span data-i18n="home.paperTitle">{t(lang, 'home.paperTitle')}</span>: <span data-i18n="home.paperRef">{t(lang, 'home.paperRef')}</span></p>
+    </section>
+
+    <section class="grid grid--2" aria-labelledby="modes-title">
+      <div class="card">
+        <h2 id="modes-title" class="mt-0">{t(lang, 'home.modesTitle')}</h2>
+        <h3>{t(lang, 'home.modesStaticTitle')}</h3>
+        <p class="small">{t(lang, 'home.modesStaticDesc')}</p>
+        <a class="btn btn--small" href="/experience/">{t(lang, 'home.ctaExperience')}</a>
+      </div>
+      <div class="card">
+        <h3>{t(lang, 'home.modesLiveTitle')}</h3>
+        <p class="small">{t(lang, 'home.modesLiveDesc')}</p>
+        <p class="callout callout--sim">
+          <strong>{t(lang, 'common.notConnected')}.</strong> {t(lang, 'home.modesLiveOff')}
+        </p>
+        <span class="badge badge--simulation">{t(lang, 'status.simulation')}</span>
+        <span class="badge badge--live">{t(lang, 'status.liveAiDraft')}</span>
+      </div>
+    </section>
+
+    <section class="card card--soft" aria-labelledby="support-title">
+      <h3 id="support-title" class="mt-0">{t(lang, 'home.supportTitle')}</h3>
+      <p class="small mb-0">
+        {t(lang, 'home.supportBody')} · <a href="https://caipex.site/" rel="noopener" target="_blank">caipex.site</a>
+      </p>
+    </section>
+  </div>
+</BaseLayout>

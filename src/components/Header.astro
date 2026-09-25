@@ -1,0 +1,189 @@
+---
+import type { Lang } from '../i18n';
+import { t } from '../i18n';
+
+interface Props {
+  lang: Lang;
+  /** Current pathname (e.g. '/experience/') for aria-current. */
+  path: string;
+}
+
+const { lang, path } = Astro.props;
+
+const groups: Array<{ label: string; items: Array<{ href: string; key: string }> }> = [
+  {
+    label: t(lang, 'nav.groupQuick'),
+    items: [{ href: '/experience/', key: 'nav.experience' }],
+  },
+  {
+    label: t(lang, 'nav.groupResearch'),
+    items: [
+      { href: '/', key: 'nav.home' },
+      { href: '/research/', key: 'nav.research' },
+      { href: '/learn/', key: 'nav.learn' },
+    ],
+  },
+  {
+    label: t(lang, 'nav.groupLab'),
+    items: [
+      { href: '/lab/family/', key: 'nav.labFamily' },
+      { href: '/lab/claims/', key: 'nav.labClaims' },
+      { href: '/lab/prior-art/', key: 'nav.labPriorArt' },
+      { href: '/lab/discrepancies/', key: 'nav.labDiscrepancies' },
+      { href: '/lab/rules/', key: 'nav.labRules' },
+    ],
+  },
+  {
+    label: t(lang, 'nav.groupHuman'),
+    items: [{ href: '/workspace/', key: 'nav.workspace' }],
+  },
+  {
+    label: t(lang, 'nav.groupMethod'),
+    items: [
+      { href: '/method/', key: 'nav.method' },
+      { href: '/sources/', key: 'nav.sources' },
+    ],
+  },
+];
+
+const flatItems = groups.flatMap((g) => g.items);
+const isCurrent = (href: string) =>
+  href === '/' ? path === '/' : path.startsWith(href);
+---
+
+<header class="site-header">
+  <div class="container site-header__row">
+    <a class="brand" href={lang === 'ko' ? '/' : `/?lang=${lang}`}>
+      <svg width="34" height="34" viewBox="0 0 64 64" aria-hidden="true">
+        <rect width="64" height="64" rx="12" fill="var(--ink)"></rect>
+        <path d="M16 20 h14 a6 6 0 0 1 0 12 h-14 z" fill="none" stroke="var(--kr)" stroke-width="4" stroke-linejoin="round"></path>
+        <path d="M48 20 h-14 a6 6 0 0 0 0 12 h14 z" fill="none" stroke="var(--jp)" stroke-width="4" stroke-linejoin="round"></path>
+        <path d="M24 36 h16" stroke="var(--teal)" stroke-width="4" stroke-linecap="round"></path>
+      </svg>
+      <span>
+        <span class="brand__name">{t(lang, 'nav.siteName')}</span>
+        <span class="brand__tag">{t(lang, 'nav.tagline')}</span>
+      </span>
+    </a>
+
+    <nav class="site-nav" aria-label={t(lang, 'nav.siteName')}>
+      <ul>
+        {groups.map((g, gi) => (
+          <>
+            {gi > 0 && <li class="nav-sep" aria-hidden="true"></li>}
+            {g.items.map((item) => (
+              <li>
+                <a href={lang === 'ko' ? item.href : `${item.href}?lang=${lang}`} aria-current={isCurrent(item.href) ? 'page' : undefined}>
+                  {t(lang, item.key as never)}
+                </a>
+              </li>
+            ))}
+          </>
+        ))}
+      </ul>
+    </nav>
+
+    <div class="header-controls">
+      <div class="control-group">
+        <label class="sr-only" for="lang-select">{t(lang, 'lang.label')}</label>
+        <select id="lang-select" data-lang-select data-no-translate>
+          <option value="ko" selected={lang === 'ko'}>한국어</option>
+          <option value="en" selected={lang === 'en'}>English</option>
+          <option value="ja" selected={lang === 'ja'}>日本語</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <span class="sr-only" id="theme-label">{t(lang, 'theme.label')}</span>
+        <div role="group" aria-labelledby="theme-label" style="display:flex;gap:2px">
+          <button type="button" class="btn btn--small" data-theme-choice="system" aria-pressed="false">◐</button>
+          <button type="button" class="btn btn--small" data-theme-choice="light" aria-pressed="false">☀</button>
+          <button type="button" class="btn btn--small" data-theme-choice="dark" aria-pressed="false">☾</button>
+        </div>
+        <span class="control-group__meta" data-theme-meta></span>
+      </div>
+      <button type="button" class="menu-button" data-menu-toggle aria-expanded="false" aria-controls="mobile-menu">
+        ☰ <span data-menu-toggle-label>{t(lang, 'nav.openMenu')}</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="mobile-menu" id="mobile-menu" data-open="false">
+    {groups.map((g) => (
+      <>
+        <h2>{g.label}</h2>
+        <ul>
+          {g.items.map((item) => (
+            <li>
+              <a href={lang === 'ko' ? item.href : `${item.href}?lang=${lang}`} aria-current={isCurrent(item.href) ? 'page' : undefined}>
+                {t(lang, item.key as never)}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </>
+    ))}
+  </div>
+</header>
+
+<script>
+  import { switchLang } from '../i18n';
+
+  const langSelect = document.querySelector<HTMLSelectElement>('[data-lang-select]');
+  langSelect?.addEventListener('change', () => {
+    const v = langSelect.value as 'ko' | 'en' | 'ja';
+    switchLang(v);
+  });
+
+  // Theme buttons: show BOTH the selected value and the applied color.
+  const themeMeta = document.querySelector<HTMLElement>('[data-theme-meta]');
+  const themeButtons = document.querySelectorAll<HTMLButtonElement>('[data-theme-choice]');
+  const themeLabels = {
+    system: ['◐', { ko: '시스템', en: 'System', ja: 'システム' }],
+    light: ['☀', { ko: '라이트', en: 'Light', ja: 'ライト' }],
+    dark: ['☾', { ko: '다크', en: 'Dark', ja: 'ダーク' }],
+  } as const;
+  const currentLang = (new URLSearchParams(location.search).get('lang') || 'ko') as 'ko' | 'en' | 'ja';
+
+  function refreshThemeUI() {
+    const helper = (window as unknown as { __kjEqhTheme?: { savedTheme: () => string } }).__kjEqhTheme;
+    const saved = helper ? helper.savedTheme() : 'system';
+    const applied = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    themeButtons.forEach((b) => {
+      const v = b.getAttribute('data-theme-choice') as 'system' | 'light' | 'dark';
+      b.setAttribute('aria-pressed', String(v === saved));
+    });
+    if (themeMeta) {
+      const name = themeLabels[saved as 'system' | 'light' | 'dark'][1][currentLang];
+      const appliedName =
+        applied === 'dark'
+          ? ({ ko: '현재 다크', en: 'currently dark', ja: '現在ダーク' } as const)[currentLang]
+          : ({ ko: '현재 라이트', en: 'currently light', ja: '現在ライト' } as const)[currentLang];
+      themeMeta.textContent = `${name} · ${appliedName}`;
+    }
+  }
+
+  themeButtons.forEach((b) => {
+    b.addEventListener('click', () => {
+      const v = b.getAttribute('data-theme-choice') as 'system' | 'light' | 'dark';
+      const helper = (window as unknown as { __kjEqhTheme?: { set: (t: string) => void } }).__kjEqhTheme;
+      if (helper) helper.set(v);
+      refreshThemeUI();
+    });
+  });
+  refreshThemeUI();
+
+  // Mobile menu (keyboard-friendly disclosure)
+  const toggle = document.querySelector<HTMLButtonElement>('[data-menu-toggle]');
+  const menu = document.querySelector<HTMLElement>('#mobile-menu');
+  toggle?.addEventListener('click', () => {
+    const open = menu?.getAttribute('data-open') === 'true';
+    menu?.setAttribute('data-open', String(!open));
+    toggle.setAttribute('aria-expanded', String(!open));
+  });
+  menu?.addEventListener('click', (e) => {
+    if ((e.target as HTMLElement).closest('a')) {
+      menu.setAttribute('data-open', 'false');
+      toggle?.setAttribute('aria-expanded', 'false');
+    }
+  });
+</script>

@@ -1,0 +1,48 @@
+---
+/**
+ * User-made images (plan §9): files dropped into public/assets/images/ with the
+ * exact basenames below are picked up automatically (WebP preferred, PNG ok).
+ * Without an image the component renders a CSS/SVG fallback — the site is
+ * always complete without generated assets.
+ */
+import type { Lang } from '../i18n';
+import { t } from '../i18n';
+import heroImages from 'virtual:hero-images';
+
+interface Props {
+  basename: 'harmony-hero' | 'family-timeline' | 'claim-alignment' | 'evidence-bridge' | 'human-review' | 'research-horizon';
+  lang: Lang;
+  /** i18n key of the ALT text, e.g. 'images.hero.alt'. */
+  altKey: string;
+  ratio?: '16-9' | '3-2' | '4-3' | '21-9';
+}
+
+const { basename, lang, altKey, ratio = '3-2' } = Astro.props;
+
+const webp = heroImages.find((f) => f === `${basename}.webp`);
+const png = heroImages.find((f) => f === `${basename}.png`);
+const file = webp ?? png;
+const alt = t(lang, altKey as never);
+---
+{
+  file ? (
+    <figure class="hero-figure">
+      <img src={`/assets/images/${file}`} alt={alt} data-i18n-alt={altKey} width={ratio === '16-9' ? 1600 : ratio === '21-9' ? 1680 : 1200} height={ratio === '4-3' ? 900 : ratio === '21-9' ? 720 : 800} loading="lazy" decoding="async" />
+    </figure>
+  ) : (
+    <figure class="hero-figure" role="img" aria-label={alt} data-i18n-aria={altKey}>
+      <div class="hero-fallback">
+        <svg viewBox="0 0 420 150" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <g fill="none" stroke-width="2.4" stroke-linecap="round">
+            <path d="M30 75 C 70 30, 110 30, 150 75 S 230 120, 270 75" stroke="var(--kr)" opacity="0.85"/>
+            <path d="M150 75 C 190 30, 230 30, 270 75 S 350 120, 390 75" stroke="var(--jp)" opacity="0.85"/>
+            <circle cx="150" cy="75" r="7" fill="var(--teal)" stroke="none"/>
+            <circle cx="270" cy="75" r="7" fill="var(--teal)" stroke="none"/>
+            <path d="M150 75 L 270 75" stroke="var(--teal)" stroke-dasharray="3 6" opacity="0.7"/>
+            <path d="M60 110 h60 M110 40 h60 M300 110 h60 M350 40 h60" stroke="var(--line-strong)" stroke-dasharray="2 5" opacity="0.7"/>
+          </g>
+        </svg>
+      </div>
+    </figure>
+  )
+}

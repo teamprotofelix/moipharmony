@@ -1,0 +1,38 @@
+---
+import BaseLayout from '../components/BaseLayout.astro';
+import { langFromUrl, t } from '../i18n';
+
+const lang = langFromUrl(Astro.url);
+const causes = ['family', 'version', 'priorArt', 'fact', 'legal'] as const;
+---
+<BaseLayout titleKeys={['nav.learn', 'nav.siteName']} descKey="learn.sub">
+  <div class="container">
+    <header class="page-head">
+      <h1>{t(lang, 'learn.title')}</h1>
+      <p class="lead">{t(lang, 'learn.sub')}</p>
+      <p class="small">{t(lang, 'learn.intro')}</p>
+    </header>
+
+    <div class="grid grid--2">
+      {causes.map((cause) => (
+        <details class="expander">
+          <summary>{t(lang, `learn.${cause}.title` as never)}</summary>
+          <div class="expander__body">
+            <p>{t(lang, `learn.${cause}.body` as never)}</p>
+            <p>
+              <strong>{t(lang, 'learn.exampleLabel')}:</strong> {t(lang, `learn.${cause}.example` as never)}
+            </p>
+            <p class="callout callout--info mb-0">
+              <strong>{t(lang, 'learn.whyLabel')}:</strong> {t(lang, `learn.${cause}.why` as never)}
+            </p>
+          </div>
+        </details>
+      ))}
+    </div>
+
+    <div class="card teal-panel">
+      <p class="mb-0"><strong>{t(lang, 'learn.takeaway')}</strong></p>
+      <a class="btn btn--teal mt-16" href="/experience/">{t(lang, 'learn.cta')} <span aria-hidden="true">→</span></a>
+    </div>
+  </div>
+</BaseLayout>

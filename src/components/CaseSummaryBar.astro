@@ -1,0 +1,97 @@
+---
+/**
+ * Sticky summary shown during the experience (plan §2):
+ * 선택한 사건 · KR 청구항 버전 · JP 청구항 버전 · 비교 기준일 · 현재 분류 (+ 신호)
+ * Reads sessionStorage state, evaluates the deterministic trace, re-renders on change.
+ */
+import type { Lang } from '../i18n';
+import { t } from '../i18n';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const labels = {
+  case: t(lang, 'exp.summary.case'),
+  kr: t(lang, 'exp.summary.krVersion'),
+  jp: t(lang, 'exp.summary.jpVersion'),
+  date: t(lang, 'exp.summary.comparisonDate'),
+  cls: t(lang, 'exp.summary.currentClass'),
+  verdict: t(lang, 'exp.summary.verdict'),
+  empty: '—',
+};
+---
+<div class="casebar" data-casebar>
+  <div class="container casebar__row">
+    <span class="casebar__item"><span class="casebar__label">{labels.case}</span><span class="casebar__value" data-cb-case>{labels.empty}</span></span>
+    <span class="casebar__item"><span class="casebar__label">{labels.kr}</span><span class="casebar__value" data-cb-kr>{labels.empty}</span></span>
+    <span class="casebar__item"><span class="casebar__label">{labels.jp}</span><span class="casebar__value" data-cb-jp>{labels.empty}</span></span>
+    <span class="casebar__item"><span class="casebar__label">{labels.date}</span><span class="casebar__value" data-cb-date>{labels.empty}</span></span>
+    <span class="casebar__item"><span class="casebar__label">{labels.cls}</span><span data-cb-cls class="casebar__empty">{labels.empty}</span></span>
+    <span class="casebar__item"><span class="casebar__label">{labels.verdict}</span><span data-cb-verdict class="casebar__empty">{labels.empty}</span></span>
+  </div>
+</div>
+
+<script>
+  import { loadState } from '../lib/state';
+  import { cases } from '../data';
+  import { evaluateHarmony } from '../lib/evaluate';
+  import { dicts } from '../i18n';
+
+  const lang = (new URLSearchParams(location.search).get('lang') || 'ko') as 'ko' | 'en' | 'ja';
+  const dict = dicts[lang];
+
+  function render() {
+    const bar = document.querySelector<HTMLElement>('[data-casebar]');
+    if (!bar) return;
+    const set = (sel: string, text: string) => {
+      const el = bar.querySelector<HTMLElement>(sel);
+      if (el) el.textContent = text;
+    };
+    const state = loadState();
+    const c = cases[state.caseId];
+    if (!c || !state.krVersion || !state.jpVersion || !state.comparisonDate) {
+      set('[data-cb-case]', state.caseId || '—');
+      set('[data-cb-kr]', '—');
+      set('[data-cb-jp]', '—');
+      set('[data-cb-date]', '—');
+      set('[data-cb-cls]', '—');
+      set('[data-cb-verdict]', '—');
+      return;
+    }
+    const trace = evaluateHarmony({
+      case: c,
+      selectedVersions: { kr: state.krVersion, jp: state.jpVersion },
+      comparisonDate: state.comparisonDate,
+      documentAvailability: Object.fromEntries(state.missingDocs.map((d) => [d, 'missing' as const])),
+      translationVerification: state.translation,
+      priorArtDateOverride: state.d1DateOverride ? { D1: state.d1DateOverride } : undefined,
+      reviewerEdits: {
+        decision: state.reviewerDecision ?? undefined,
+        challengeSpans: state.challengeSpans,
+      },
+      familyConfidenceOverride: state.familyConfidence ?? undefined,
+    });
+    const krV = c.claimVersions.find((v) => v.id === state.krVersion);
+    const jpV = c.claimVersions.find((v) => v.id === state.jpVersion);
+    set('[data-cb-case]', state.caseId);
+    set('[data-cb-kr]', krV ? `${krV.effectiveDate}` : '—');
+    set('[data-cb-jp]', jpV ? `${jpV.effectiveDate}` : '—');
+    set('[data-cb-date]', state.comparisonDate);
+    const clsEl = bar.querySelector<HTMLElement>('[data-cb-cls]');
+    if (clsEl) {
+      clsEl.textContent =
+        trace.divergence.length > 0 ? trace.divergence.join(' · ') : '—';
+    }
+    const verdictEl = bar.querySelector<HTMLElement>('[data-cb-verdict]');
+    if (verdictEl) {
+      verdictEl.textContent = trace.verdict;
+      verdictEl.className = `casebar__value mono verdict verdict--${trace.verdict}`;
+    }
+  }
+
+  render();
+  window.addEventListener('kj-eqh:state', render);
+  window.addEventListener('storage', render);
+  document.addEventListener('astro:page-load', render);
+</script>

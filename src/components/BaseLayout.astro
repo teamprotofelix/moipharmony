@@ -1,0 +1,69 @@
+---
+import type { Lang } from '../i18n';
+import { langFromUrl, t } from '../i18n';
+import ThemeScript from './ThemeScript.astro';
+import Header from './Header.astro';
+import Footer from './Footer.astro';
+import CaseSummaryBar from './CaseSummaryBar.astro';
+import '../styles/global.css';
+
+interface Props {
+  /** i18n keys composing the page title, joined with " — ". */
+  titleKeys: string[];
+  /** i18n key of the meta description. */
+  descKey: string;
+  /** Show the sticky case summary bar (experience, labs, workspace). */
+  showCaseBar?: boolean;
+}
+
+const { titleKeys, descKey, showCaseBar = false } = Astro.props;
+// Static builds cannot see the query string, so pages are baked in ko;
+// the runtime layer (i18n-runtime) switches ?lang=en/ja after load.
+const lang: Lang = 'ko';
+const title = titleKeys.map((k) => t(lang, k as never)).join(' — ');
+const description = t(lang, descKey as never);
+const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+const canonical = new URL(path === '/' ? '/' : `${path}/`, Astro.site);
+---
+<!doctype html>
+<html lang="ko" data-theme="light" data-title-keys={titleKeys.join('|')}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} data-i18n-meta={descKey} />
+    <link rel="canonical" href={canonical.href} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <ThemeScript />
+    <script is:inline>
+      // Saved language applies when no explicit ?lang= param is present.
+      (function () {
+        try {
+          var has = new URLSearchParams(location.search).has('lang');
+          if (!has) {
+            var saved = localStorage.getItem('kj-eqh.lang');
+            if (saved === 'en' || saved === 'ja') {
+              var u = new URL(location.href);
+              u.searchParams.set('lang', saved);
+              location.replace(u.toString());
+            }
+          }
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#content">Skip to content</a>
+    <Header lang={lang} path={path} />
+    {showCaseBar && <CaseSummaryBar lang={lang} />}
+    <main id="content">
+      <slot />
+    </main>
+    <Footer lang={lang} />
+    <script>
+      // Runtime language layer (?lang= / localStorage / ko): text swap,
+      // internal-link rewriting, <html lang>, title and meta description.
+      import '../lib/i18n-runtime';
+    </script>
+  </body>
+</html>

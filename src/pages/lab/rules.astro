@@ -1,0 +1,222 @@
+---
+import BaseLayout from '../../components/BaseLayout.astro';
+import StatusBadge from '../../components/StatusBadge.astro';
+import { langFromUrl, t } from '../../i18n';
+
+const lang = langFromUrl(Astro.url);
+---
+<BaseLayout titleKeys={['nav.labRules', 'nav.siteName']} descKey="labRules.sub" showCaseBar>
+  <div class="container">
+    <header class="page-head">
+      <StatusBadge kind="simulation" lang={lang} />
+      <StatusBadge kind="proposal" lang={lang} />
+      <h1>{t(lang, 'labRules.title')}</h1>
+      <p class="lead">{t(lang, 'labRules.sub')}</p>
+    </header>
+
+    <div id="lab-case"></div>
+
+    <section class="card" id="lab-boundaries">
+      <h2 class="mt-0">{t(lang, 'labRules.boundaryTitle')}</h2>
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th scope="col">{t(lang, 'ruleLayer.common')}</th>
+              <th scope="col">{t(lang, 'labRules.purpose')}</th>
+              <th scope="col">{t(lang, 'labRules.siteAction')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">{t(lang, 'ruleLayer.common')}</th>
+              <td>{t(lang, 'ruleLayer.common.desc')}</td>
+              <td>{t(lang, 'labRules.siteAction.common')}</td>
+            </tr>
+            <tr>
+              <th scope="row">{t(lang, 'ruleLayer.krLegal')}</th>
+              <td>{t(lang, 'ruleLayer.krLegal.desc')}</td>
+              <td>{t(lang, 'labRules.siteAction.krLegal')}</td>
+            </tr>
+            <tr>
+              <th scope="row">{t(lang, 'ruleLayer.jpLegal')}</th>
+              <td>{t(lang, 'ruleLayer.jpLegal.desc')}</td>
+              <td>{t(lang, 'labRules.siteAction.jpLegal')}</td>
+            </tr>
+            <tr>
+              <th scope="row">{t(lang, 'ruleLayer.crossOffice')}</th>
+              <td>{t(lang, 'ruleLayer.crossOffice.desc')}</td>
+              <td>{t(lang, 'labRules.siteAction.crossOffice')}</td>
+            </tr>
+            <tr>
+              <th scope="row">{t(lang, 'ruleLayer.humanOnly')}</th>
+              <td>{t(lang, 'ruleLayer.humanOnly.desc')}</td>
+              <td>{t(lang, 'labRules.siteAction.humanOnly')}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card" id="lab-profiles">
+      <h2 class="mt-0">KR / JP Legal Profile</h2>
+      <div class="tabs" role="tablist" id="lab-profiles-tabs"></div>
+      <div id="lab-profiles-body"></div>
+    </section>
+
+    <section class="card" id="lab-lifecycle">
+      <h2 class="mt-0">{t(lang, 'labRules.lifecycleTitle')}</h2>
+      <p class="small">{t(lang, 'labRules.lifecycleIntro')}</p>
+      <div id="lab-lifecycle-body"></div>
+    </section>
+
+    <section class="card" id="lab-versions">
+      <h2 class="mt-0">{t(lang, 'labRules.versionsTitle')}</h2>
+      <p class="small">{t(lang, 'labRules.versionsHint')}</p>
+      <div id="lab-versions-body"></div>
+    </section>
+
+    <div id="lab-trace"></div>
+
+    <div class="btn-row">
+      <a class="btn btn--teal" href="/workspace/">{t(lang, 'labRules.nextStep')} <span aria-hidden="true">→</span></a>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import { h, clear, spanOfCase, spanLocation } from '../../lib/ui';
+  import { initLab, renderCaseSelector, renderLabTraceCard, mount } from '../../lib/lab-common';
+
+  const ctx = initLab();
+  const { lang, t, state, c } = ctx;
+
+  let activeProfile: 'KR' | 'JP' = 'KR';
+  const LIFECYCLE = ['DRAFT', 'REVIEW', 'REGRESSION', 'SHADOW', 'APPROVED'] as const;
+  // Virtual lifecycle position (lab-local, resets on reload)
+  let lifecycleIdx = 0;
+
+  function renderAll() {
+    mount('lab-case', renderCaseSelector(ctx, () => location.reload()));
+    renderProfiles();
+    renderLifecycle();
+    renderVersions();
+    mount('lab-trace', renderLabTraceCard(ctx));
+  }
+
+  function profileSpan(office: 'KR' | 'JP') {
+    const prefix = state.caseId.toLowerCase();
+    const sid = `${prefix}.${office.toLowerCase()}.legal-profile`;
+    return spanOfCase(c, sid);
+  }
+
+  function renderProfiles() {
+    const tabs = document.getElementById('lab-profiles-tabs')!;
+    clear(tabs);
+    for (const office of ['KR', 'JP'] as const) {
+      tabs.append(
+        h('button', {
+          role: 'tab',
+          'aria-selected': activeProfile === office ? 'true' : 'false',
+          onclick: () => {
+            activeProfile = office;
+            renderProfiles();
+          },
+        }, [t(`ruleLayer.${office.toLowerCase()}Legal`)],
+      ));
+    }
+    const body = document.getElementById('lab-profiles-body')!;
+    clear(body);
+    const span = profileSpan(activeProfile);
+    const effFrom = activeProfile === 'KR' ? '2022-06-01' : '2022-10-01';
+    if (span) {
+      const cls = span.originalLanguage === 'ko' ? 'orig--ko' : 'orig--ja';
+      body.append(
+        h('p', {}, [
+          h('strong', {}, [t('labRules.sourceLabel')]),
+          ': ',
+          h('span', { class: 'small' }, [spanLocation(c, span.id)]),
+          ' · ',
+          h('strong', {}, [t('labRules.effectiveLabel')]),
+          ': ',
+          h('span', { class: 'small' }, [effFrom]),
+        ]),
+        h('div', { class: `orig ${cls}` }, [span.originalText]),
+        h('p', { class: 'gloss' }, [span.gloss[lang] ?? span.gloss.ko]),
+      );
+    } else {
+      body.append(h('p', { class: 'small' }, [t(`ruleLayer.${activeProfile.toLowerCase()}Legal.desc`)]));
+    }
+    body.append(h('p', { class: 'callout callout--danger mb-0' }, [t('labRules.applyForbidden')]));
+  }
+
+  function renderLifecycle() {
+    const body = document.getElementById('lab-lifecycle-body')!;
+    clear(body);
+    const candidate = c.ruleCandidate;
+    if (!candidate) {
+      body.append(h('p', { class: 'small mb-0' }, [t('cases.h08.expectation') + ' — ' + t('cases.h08.title')]));
+      return;
+    }
+    const graph = h('div', { class: 'lifecycle', role: 'status' });
+    LIFECYCLE.forEach((stage, i) => {
+      if (i > 0) graph.append(h('span', { class: 'lc-arrow' }, ['→']));
+      graph.append(
+        h('div', { class: `lc-node${i === lifecycleIdx ? ' lc-node--current' : ''}` }, [
+          h('strong', {}, [stage]),
+          h('span', { class: 'small' }, [t(`lifecycle.${stage}.desc`)]),
+        ]),
+      );
+    });
+    body.append(graph);
+    body.append(
+      h('p', { class: 'small mb-0' }, [
+        `${candidate.id} ${candidate.version} · ${t('lifecycle.DRAFT.desc')} — ${candidate.proposedAt}`,
+      ]),
+      h('div', { class: 'btn-row' }, [
+        h('button', {
+          class: 'btn btn--small',
+          disabled: lifecycleIdx >= LIFECYCLE.length - 1 ? 'true' : undefined,
+          onclick: () => {
+            lifecycleIdx = Math.min(LIFECYCLE.length - 1, lifecycleIdx + 1);
+            renderLifecycle();
+          },
+        }, [t('common.next') + ' → ' + LIFECYCLE[Math.min(LIFECYCLE.length - 1, lifecycleIdx + 1)]]),
+        h('button', {
+          class: 'btn btn--small',
+          disabled: lifecycleIdx === 0 ? 'true' : undefined,
+          onclick: () => {
+            lifecycleIdx = 0;
+            renderLifecycle();
+          },
+        }, [t('common.reset')]),
+      ]),
+      h('p', { class: 'callout callout--warn mb-0' }, [t('expKey.AI_RULE_CANDIDATE')]),
+    );
+  }
+
+  function renderVersions() {
+    const body = document.getElementById('lab-versions-body')!;
+    clear(body);
+    const table = h('table', { class: 'data' });
+    table.append(h('tbody', {}, c.ruleVersions.map((r) =>
+      h('tr', {}, [
+        h('th', {}, [r.id]),
+        h('td', { class: 'mono' }, [r.version]),
+        h('td', {}, [r.effectiveFrom]),
+      ]),
+    )));
+    body.append(table);
+    if (c.ruleCandidate) {
+      body.append(
+        h('p', { class: 'small mb-0' }, [
+          h('span', { class: 'badge badge--ai' }, [t('lifecycle.DRAFT')]),
+          ' ',
+          `${c.ruleCandidate.id} ${c.ruleCandidate.version}`,
+        ]),
+      );
+    }
+  }
+
+  renderAll();
+</script>

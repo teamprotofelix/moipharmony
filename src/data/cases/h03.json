@@ -1,0 +1,249 @@
+{
+  "id": "H-03",
+  "fictional": true,
+  "scenario": "FACT_DIVERGENCE",
+  "familyLink": { "confidence": 0.96, "priorityDate": "2021-09-20", "sourceSpanIds": ["h03.kr.filing"] },
+  "documentClass": "PUBLIC",
+  "documents": [
+    { "id": "h03.kr.claim-doc", "office": "KR", "class": "PUBLIC", "label": { "ko": "KR 공개공보 (합성)", "en": "KR published application (synthetic)", "ja": "KR公開公報（合成）" } },
+    { "id": "h03.jp.claim-doc", "office": "JP", "class": "PUBLIC", "label": { "ko": "JP 공개공보 (합성)", "en": "JP published application (synthetic)", "ja": "JP公開公報（合成）" } },
+    { "id": "h03.d1", "office": "JP", "class": "PUBLIC", "label": { "ko": "D1 — JP 2020-143210 A (합성)", "en": "D1 — JP 2020-143210 A (synthetic)", "ja": "D1 — JP 2020-143210 A（合成）" } },
+    { "id": "h03.kr.dossier", "office": "KR", "class": "PUBLIC", "label": { "ko": "KR 경과기록 (합성)", "en": "KR file wrapper (synthetic)", "ja": "KR経過記録（合成）" } },
+    { "id": "h03.jp.dossier", "office": "JP", "class": "PUBLIC", "label": { "ko": "JP 경과기록 (합성)", "en": "JP file wrapper (synthetic)", "ja": "JP経過記録（合成）" } }
+  ],
+  "claimVersions": [
+    {
+      "id": "h03.kr.v1",
+      "office": "KR",
+      "claimNumber": 1,
+      "effectiveDate": "2022-03-10",
+      "versionHash": "sha256:synth-h03-kr-v1",
+      "originalTextSpanIds": ["h03.kr.claim1"],
+      "elements": [
+        { "id": "E1", "label": { "ko": "감지부", "en": "Sensing unit", "ja": "検知部" }, "sourceSpanIds": ["h03.kr.claim1.e1"] },
+        { "id": "E2", "label": { "ko": "통신부", "en": "Communication unit", "ja": "通信部" }, "sourceSpanIds": ["h03.kr.claim1.e2"] },
+        { "id": "E3", "label": { "ko": "적응형 샘플링 제어부", "en": "Adaptive sampling controller", "ja": "適応サンプリング制御部" }, "sourceSpanIds": ["h03.kr.claim1.e3"] }
+      ]
+    },
+    {
+      "id": "h03.jp.v1",
+      "office": "JP",
+      "claimNumber": 1,
+      "effectiveDate": "2022-01-14",
+      "versionHash": "sha256:synth-h03-jp-v1",
+      "originalTextSpanIds": ["h03.jp.claim1"],
+      "elements": [
+        { "id": "E1", "label": { "ko": "검지부", "en": "Detecting unit", "ja": "検知部" }, "sourceSpanIds": ["h03.jp.claim1.e1"] },
+        { "id": "E2", "label": { "ko": "통신부", "en": "Communication unit", "ja": "通信部" }, "sourceSpanIds": ["h03.jp.claim1.e2"] },
+        { "id": "E3", "label": { "ko": "적응 샘플링 제어부", "en": "Adaptive sampling controller", "ja": "適応サンプリング制御部" }, "sourceSpanIds": ["h03.jp.claim1.e3"] }
+      ]
+    }
+  ],
+  "priorArt": [
+    {
+      "id": "D1",
+      "title": { "ko": "생체신호 측정 시스템 (합성)", "en": "Biosignal measurement system (synthetic)", "ja": "生体信号測定システム（合成）" },
+      "publicationDate": "2020-08-05",
+      "priorityDate": "2019-07-01",
+      "family": "JP 2020-143210 A",
+      "origin": "EXAMINER_CITED",
+      "citedByOffice": "BOTH",
+      "elementMappings": [
+        { "elementId": "E3", "sourceSpanIds": ["h03.d1.p0012"] }
+      ],
+      "officeMappingViews": {
+        "KR": [ { "elementId": "E3", "sourceSpanIds": ["h03.d1.p0012"] } ],
+        "JP": [ { "elementId": "E1", "sourceSpanIds": ["h03.d1.p0012"] } ]
+      },
+      "sourceSpanIds": ["h03.d1.p0012"],
+      "retrievedAt": "2022-05-12",
+      "availability": "available"
+    }
+  ],
+  "sourceSpans": [
+    {
+      "id": "h03.kr.filing",
+      "documentId": "h03.kr.claim-doc",
+      "office": "KR",
+      "originalLanguage": "ko",
+      "originalText": "출원번호 KR 제10-2021-0123456호, 출원일 2021.09.20 (합성 기록)",
+      "gloss": { "ko": "KR 출원 기록 — 출원일 2021.09.20", "en": "KR filing record — filed 2021-09-20", "ja": "KR出願記録 — 出願日2021.09.20" },
+      "page": 1,
+      "paragraph": "[서지사항]",
+      "start": 0,
+      "end": 34,
+      "retrievedAt": "2022-06-01",
+      "contentHash": "sha256:synth-h03-kr-filing"
+    },
+    {
+      "id": "h03.kr.claim1",
+      "documentId": "h03.kr.claim-doc",
+      "office": "KR",
+      "originalLanguage": "ko",
+      "originalText": "생체신호를 감지하는 센서부, 외부 기기와 무선으로 통신하는 통신부, 및 저장된 프로파일에 기초하여 샘플링 주기를 조정하는 적응형 샘플링 제어부를 포함하는 생체신호 모니터링 장치. (합성 청구항)",
+      "gloss": { "ko": "KR 청구항 1 (2022.03.10) — E1+E2+E3", "en": "KR claim 1 (2022-03-10) — E1+E2+E3", "ja": "KR請求項1（2022.03.10）— E1+E2+E3" },
+      "page": 2,
+      "paragraph": "[청구항 1]",
+      "start": 0,
+      "end": 78,
+      "retrievedAt": "2022-06-01",
+      "contentHash": "sha256:synth-h03-kr-claim1"
+    },
+    {
+      "id": "h03.kr.claim1.e1",
+      "documentId": "h03.kr.claim-doc",
+      "office": "KR",
+      "originalLanguage": "ko",
+      "originalText": "생체신호를 감지하는 센서부",
+      "gloss": { "ko": "E1 — 생체신호를 감지하는 센서부", "en": "E1 — a sensing unit that detects biosignals", "ja": "E1 — 生体信号を検知するセンサ部" },
+      "page": 2,
+      "paragraph": "[청구항 1]",
+      "start": 0,
+      "end": 14,
+      "retrievedAt": "2022-06-01",
+      "contentHash": "sha256:synth-h03-kr-e1"
+    },
+    {
+      "id": "h03.kr.claim1.e2",
+      "documentId": "h03.kr.claim-doc",
+      "office": "KR",
+      "originalLanguage": "ko",
+      "originalText": "외부 기기와 무선으로 통신하는 통신부",
+      "gloss": { "ko": "E2 — 외부 기기와 무선으로 통신하는 통신부", "en": "E2 — a communication unit communicating wirelessly with an external device", "ja": "E2 — 外部機器と無線で通信する通信部" },
+      "page": 2,
+      "paragraph": "[청구항 1]",
+      "start": 15,
+      "end": 33,
+      "retrievedAt": "2022-06-01",
+      "contentHash": "sha256:synth-h03-kr-e2"
+    },
+    {
+      "id": "h03.kr.claim1.e3",
+      "documentId": "h03.kr.claim-doc",
+      "office": "KR",
+      "originalLanguage": "ko",
+      "originalText": "저장된 프로파일에 기초하여 샘플링 주기를 조정하는 적응형 샘플링 제어부",
+      "gloss": { "ko": "E3 — 저장된 프로파일에 기초하여 샘플링 주기를 조정하는 적응형 샘플링 제어부", "en": "E3 — an adaptive sampling controller adjusting the sampling period based on a stored profile", "ja": "E3 — 保存されたプロファイルに基づいてサンプリング周期を調整する適応サンプリング制御部" },
+      "page": 2,
+      "paragraph": "[청구항 1]",
+      "start": 35,
+      "end": 63,
+      "retrievedAt": "2022-06-01",
+      "contentHash": "sha256:synth-h03-kr-e3"
+    },
+    {
+      "id": "h03.jp.claim1",
+      "documentId": "h03.jp.claim-doc",
+      "office": "JP",
+      "originalLanguage": "ja",
+      "originalText": "生体信号を検知する検知部と、外部機器と無線で通信する通信部と、保存されたプロファイルに基づいてサンプリング周期を調整する適応サンプリング制御部とを備える生体信号モニタリング装置。（合成請求項）",
+      "gloss": { "ko": "JP 청구항 1 (2022.01.14) — E1+E2+E3", "en": "JP claim 1 (2022-01-14) — E1+E2+E3", "ja": "JP請求項1（2022.01.14）— E1+E2+E3" },
+      "page": 2,
+      "paragraph": "[請求項1]",
+      "start": 0,
+      "end": 76,
+      "retrievedAt": "2022-06-01",
+      "contentHash": "sha256:synth-h03-jp-claim1"
+    },
+    {
+      "id": "h03.jp.claim1.e1",
+      "documentId": "h03.jp.claim-doc",
+      "office": "JP",
+      "originalLanguage": "ja",
+      "originalText": "生体信号を検知する検知部",
+      "gloss": { "ko": "E1 — 생체신호를 검지하는 검지부", "en": "E1 — a detecting unit that detects biosignals", "ja": "E1 — 生体信号を検知する検知部" },
+      "page": 2,
+      "paragraph": "[請求項1]",
+      "start": 0,
+      "end": 12,
+      "retrievedAt": "2022-06-01",
+      "contentHash": "sha256:synth-h03-jp-e1"
+    },
+    {
+      "id": "h03.jp.claim1.e2",
+      "documentId": "h03.jp.claim-doc",
+      "office": "JP",
+      "originalLanguage": "ja",
+      "originalText": "外部機器と無線で通信する通信部",
+      "gloss": { "ko": "E2 — 외부 기기와 무선으로 통신하는 통신부", "en": "E2 — a communication unit communicating wirelessly with an external device", "ja": "E2 — 外部機器と無線で通信する通信部" },
+      "page": 2,
+      "paragraph": "[請求項1]",
+      "start": 13,
+      "end": 27,
+      "retrievedAt": "2022-06-01",
+      "contentHash": "sha256:synth-h03-jp-e2"
+    },
+    {
+      "id": "h03.jp.claim1.e3",
+      "documentId": "h03.jp.claim-doc",
+      "office": "JP",
+      "originalLanguage": "ja",
+      "originalText": "保存されたプロファイルに基づいてサンプリング周期を調整する適応サンプリング制御部",
+      "gloss": { "ko": "E3 — 저장된 프로파일에 기초하여 샘플링 주기를 조정하는 적응 샘플링 제어부", "en": "E3 — an adaptive sampling controller adjusting the sampling period based on a stored profile", "ja": "E3 — 保存されたプロファイルに基づいてサンプリング周期を調整する適応サンプリング制御部" },
+      "page": 2,
+      "paragraph": "[請求項1]",
+      "start": 28,
+      "end": 58,
+      "retrievedAt": "2022-06-01",
+      "contentHash": "sha256:synth-h03-jp-e3"
+    },
+    {
+      "id": "h03.d1.p0012",
+      "documentId": "h03.d1",
+      "office": "JP",
+      "originalLanguage": "ja",
+      "originalText": "本発明の一態様では、適応サンプリング制御部は、保存されたプロファイルに基づいてサンプリング周期を調整する。（合成原文）",
+      "gloss": { "ko": "본 발명의 일 양태에서, 적응형 샘플링 제어부는 저장된 프로파일에 기초하여 샘플링 주기를 조정한다.", "en": "In one aspect of the invention, the adaptive sampling controller adjusts the sampling period based on a stored profile.", "ja": "本発明の一態様では、適応サンプリング制御部は、保存されたプロファイルに基づいてサンプリング周期を調整する。" },
+      "page": 5,
+      "paragraph": "[0012]",
+      "start": 0,
+      "end": 43,
+      "retrievedAt": "2022-05-12",
+      "contentHash": "sha256:synth-h03-d1-p0012"
+    },
+    {
+      "id": "h03.kr.dossier.cite",
+      "documentId": "h03.kr.dossier",
+      "office": "KR",
+      "originalLanguage": "ko",
+      "originalText": "의견제출통지(2022.05.12): D1 [0012]를 청구항 1의 적응형 샘플링 제어부(E3)에 대응. (합성 기록)",
+      "gloss": { "ko": "KR 심사관은 D1 [0012]를 E3에 대응", "en": "KR examiner mapped D1 [0012] to E3", "ja": "KR審査官はD1 [0012]をE3に対応付け" },
+      "page": 1,
+      "paragraph": "[의견제출통지]",
+      "start": 0,
+      "end": 55,
+      "retrievedAt": "2022-06-01",
+      "contentHash": "sha256:synth-h03-kr-dossier-cite"
+    },
+    {
+      "id": "h03.jp.dossier.cite",
+      "documentId": "h03.jp.dossier",
+      "office": "JP",
+      "originalLanguage": "ja",
+      "originalText": "拒絶理由通知（2022.09.15）：D1 [0012]は検知部（E1）の詳細にすぎず、E3の開示とは認めない。（合成記録）",
+      "gloss": { "ko": "JP 심사관은 D1 [0012]를 E1의 상세일 뿐으로 보고 E3 개시로 인정하지 않음", "en": "JP examiner saw D1 [0012] as merely a detail of E1 and not as disclosing E3", "ja": "JP審査官はD1 [0012]をE1の詳細にすぎずE3の開示とは認めない" },
+      "page": 1,
+      "paragraph": "[拒絶理由通知]",
+      "start": 0,
+      "end": 60,
+      "retrievedAt": "2022-10-01",
+      "contentHash": "sha256:synth-h03-jp-dossier-cite"
+    }
+  ],
+  "events": {
+    "KR": [
+      { "type": "filing", "date": "2021-09-20" },
+      { "type": "amendment", "date": "2022-03-10", "detail": { "ko": "E3 한정 보정", "en": "E3 narrowing amendment", "ja": "E3限定補正" } },
+      { "type": "oa", "date": "2022-05-12", "detail": { "ko": "D1 [0012] → E3", "en": "D1 [0012] → E3", "ja": "D1 [0012] → E3" } },
+      { "type": "retrieval", "date": "2022-06-01" }
+    ],
+    "JP": [
+      { "type": "filing", "date": "2022-01-14" },
+      { "type": "oa", "date": "2022-09-15", "detail": { "ko": "D1 [0012] → E1 상세로 판단", "en": "D1 [0012] seen as an E1 detail", "ja": "D1 [0012]をE1の詳細と判断" } },
+      { "type": "retrieval", "date": "2022-06-01" }
+    ]
+  },
+  "ruleVersions": [
+    { "id": "KJ-HARM-PA-001", "version": "0.9.0-draft", "effectiveFrom": "2026-09-01" }
+  ]
+}

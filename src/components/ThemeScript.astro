@@ -1,0 +1,44 @@
+---
+/**
+ * Inline pre-paint theme script (plan §8.1):
+ * - stored value 'system' | 'light' | 'dark'; default = system
+ * - system reacts to prefers-color-scheme and OS changes
+ * - manual light/dark override the OS
+ * - localStorage blocked -> system still works
+ */
+---
+<script is:inline>
+  (function () {
+    var KEY = 'kj-eqh.theme';
+    function apply(theme) {
+      var dark =
+        theme === 'dark' ||
+        (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    }
+    function savedTheme() {
+      try {
+        var s = localStorage.getItem(KEY);
+        return s === 'light' || s === 'dark' || s === 'system' ? s : 'system';
+      } catch (e) {
+        return 'system';
+      }
+    }
+    apply(savedTheme());
+    if (window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
+        if (savedTheme() === 'system') apply('system');
+      });
+    }
+    // Theme selectors on the page use this helper
+    window.__kjEqhTheme = {
+      KEY: KEY,
+      apply: apply,
+      savedTheme: savedTheme,
+      set: function (t) {
+        try { localStorage.setItem(KEY, t); } catch (e) {}
+        apply(t);
+      },
+    };
+  })();
+</script>

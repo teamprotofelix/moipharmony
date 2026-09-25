@@ -1,0 +1,736 @@
+---
+import BaseLayout from '../components/BaseLayout.astro';
+import StatusBadge from '../components/StatusBadge.astro';
+import { langFromUrl, t } from '../i18n';
+
+const lang = langFromUrl(Astro.url);
+---
+<BaseLayout titleKeys={['nav.experience', 'nav.siteName']} descKey="exp.sub" showCaseBar>
+  <div class="container">
+    <header class="page-head">
+      <StatusBadge kind="simulation" lang={lang} />
+      <StatusBadge kind="fictional" lang={lang} />
+      <h1>{t(lang, 'exp.title')}</h1>
+      <p class="lead">{t(lang, 'exp.sub')}</p>
+      <p class="small">{t(lang, 'exp.intro')}</p>
+      <p class="callout callout--sim">{t(lang, 'common.fictionalNote')}</p>
+    </header>
+
+    <nav class="steps" id="exp-pills" aria-label={t(lang, 'exp.stepLabel')} data-i18n-aria="exp.stepLabel"></nav>
+
+    <section class="card" id="exp-panel" aria-live="polite">
+      <p id="exp-loading">…</p>
+    </section>
+
+    <section class="card" id="exp-trace-card" hidden>
+      <h2 class="mt-0">Evidence Trace</h2>
+      <div id="exp-trace"></div>
+      <details class="expander">
+        <summary>{t(lang, 'common.whySignal')}</summary>
+        <div class="expander__body"><p>{t(lang, 'labDisc.whyBody')}</p></div>
+      </details>
+      <details class="expander">
+        <summary>{t(lang, 'common.whatChange')}</summary>
+        <div class="expander__body"><p>{t(lang, 'labDisc.whatBody')}</p></div>
+      </details>
+    </section>
+
+    <section class="card teal-panel" id="exp-final" hidden></section>
+
+    <div class="btn-row">
+      <button type="button" class="btn btn--small" id="exp-clear">{t(lang, 'common.clearRecords')}</button>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import { dicts, pick } from '../i18n';
+  import { cases } from '../data';
+  import { evaluateHarmony } from '../lib/evaluate';
+  import type { HarmonyTrace } from '../data/types';
+  import {
+    loadState,
+    saveState,
+    clearState,
+    stateFromUrl,
+    shareableUrl,
+    type ExperienceState,
+  } from '../lib/state';
+  import { h, clear, renderTrace, spanOfCase, spanLocation } from '../lib/ui';
+
+  const lang = (new URLSearchParams(location.search).get('lang') || 'ko') as 'ko' | 'en' | 'ja';
+  const d = dicts[lang] as Record<string, string>;
+  const t = (k: string): string => d[k] ?? k;
+
+  let state: ExperienceState = stateFromUrl(new URL(location.href), loadState());
+  if (!cases[state.caseId]) state.caseId = 'H-01';
+  const c = cases[state.caseId];
+
+  const KR_V2 = 'h01.kr.v2';
+  const KR_V3 = 'h01.kr.v3';
+  const JP_V1 = 'h01.jp.v1';
+  const BASE_DATE = '2022-06-01';
+  const V3_DATE = '2022-12-01';
+
+  if (!state.krVersion && !state.jpVersion) {
+    state.krVersion = KR_V2;
+    state.jpVersion = JP_V1;
+    state.comparisonDate = BASE_DATE;
+  }
+
+  function evalNow(): HarmonyTrace {
+    return evaluateHarmony({
+      case: c,
+      selectedVersions: { kr: state.krVersion, jp: state.jpVersion },
+      comparisonDate: state.comparisonDate,
+      documentAvailability: Object.fromEntries(state.missingDocs.map((x) => [x, 'missing' as const])),
+      translationVerification: state.translation,
+      priorArtDateOverride: state.d1DateOverride ? { D1: state.d1DateOverride } : undefined,
+      reviewerEdits: {
+        decision: state.reviewerDecision ?? undefined,
+        challengeSpans: state.challengeSpans,
+      },
+      familyConfidenceOverride: state.familyConfidence ?? undefined,
+    });
+  }
+
+  function persist() {
+    saveState(state);
+  }
+
+  function renderAll() {
+    renderPills();
+    renderStep();
+    renderTracePanel();
+    renderFinal();
+  }
+
+  // ── Step pills ────────────────────────────────────────────
+  const pillsEl = document.getElementById('exp-pills')!;
+  function renderPills() {
+    clear(pillsEl);
+    for (let i = 1; i <= 8; i++) {
+      const pill = h(
+        'button',
+        {
+          class: `step-pill${i < state.step ? ' step-pill--done' : ''}`,
+          'aria-current': i === state.step ? 'step' : undefined,
+          disabled: i > state.step ? 'true' : undefined,
+          onclick: () => {
+            state.step = i;
+            persist();
+            renderAll();
+          },
+        },
+        [i <= 7 ? `${t('exp.stepLabel')} ${i}` : t('exp.basketsTitle')],
+      );
+      pillsEl.append(pill);
+    }
+  }
+
+  // ── Step renderers ────────────────────────────────────────
+  const panel = document.getElementById('exp-panel')!;
+
+  function stepShell(step: number, body: Node[], actions: Array<HTMLElement | null | undefined> = []): void {
+    clear(panel);
+    panel.append(
+      h('h2', {}, [`${t('exp.stepLabel')} ${step}. ${t(`exp.step${step}.title`)}`]),
+      h('p', {}, [t(`exp.step${step}.body`)]),
+      ...body,
+      h('div', { class: 'btn-row' }, [
+        ...actions,
+        step > 1
+          ? h('button', {
+              class: 'btn btn--small',
+              onclick: () => {
+                state.step = step - 1;
+                persist();
+                renderAll();
+              },
+            }, [`← ${t('exp.prevStep')}`])
+          : null,
+        isDone(step)
+          ? h(
+              'button',
+              {
+                class: 'btn btn--primary',
+                onclick: () => {
+                  state.step = step + 1;
+                  persist();
+                  renderAll();
+                  window.scrollTo({ top: 0 });
+                },
+              },
+              [step === 7 ? t('exp.basketsTitle') + ' →' : t('exp.nextStep') + ' →'],
+            )
+          : null,
+      ]),
+    );
+  }
+
+  function isDone(step: number): boolean {
+    switch (step) {
+      case 1: return state.familyViewed;
+      case 2: return Boolean(state.krVersion && state.jpVersion && state.comparisonDate);
+      case 3: return state.citationsConfirmed;
+      case 4: return state.d1EvidenceViewed;
+      case 5: return state.krVersion === KR_V3;
+      case 6: return state.d1DateOverride === '2022-09-01';
+      case 7: return state.translation !== 'verified' || state.missingDocs.includes('h01.jp.dossier');
+      default: return false;
+    }
+  }
+
+  function origCard(spanId: string, label: string): HTMLElement {
+    const span = spanOfCase(c, spanId);
+    if (!span) return h('p', {}, [spanId]);
+    const langCls = span.originalLanguage === 'ko' ? 'orig--ko' : span.originalLanguage === 'ja' ? 'orig--ja' : 'orig--en';
+    return h('div', { class: `orig ${langCls}` }, [
+      h('span', { class: 'orig__lang' }, [spanLocation(c, spanId)]),
+      h('p', { style: 'margin:6px 0 0' }, [span.originalText]),
+      h('p', { class: 'gloss' }, [pick(lang, span.gloss)]),
+    ]);
+  }
+
+  function feedback(text: string, extra?: string): HTMLElement {
+    return h('div', { class: 'callout callout--ok', role: 'status' }, [
+      h('p', { style: 'margin:0' }, [text]),
+      extra ? h('p', { class: 'small', style: 'margin:4px 0 0' }, [extra]) : null,
+    ]);
+  }
+
+  function renderStep() {
+    switch (state.step) {
+      case 1: {
+        const evidence = state.familyViewed
+          ? [
+              h('div', { class: 'grid grid--2' }, [
+                origCard('h01.kr.filing', 'KR'),
+                origCard('h01.jp.priority', 'JP'),
+              ]),
+              feedback(t('exp.step1.done'), t('exp.step1.hint')),
+            ]
+          : [];
+        stepShell(1, evidence, [
+          state.familyViewed
+            ? null
+            : h('button', {
+                class: 'btn btn--teal',
+                onclick: () => {
+                  state.familyViewed = true;
+                  persist();
+                  renderAll();
+                },
+              }, [t('exp.step1.action')]),
+        ]);
+        break;
+      }
+
+      case 2: {
+        const krOptions = c.claimVersions.filter((v) => v.office === 'KR');
+        const jpOptions = c.claimVersions.filter((v) => v.office === 'JP');
+        const krSel = h('select', { style: 'font:inherit;padding:6px 10px;margin:0 8px 8px 0' });
+        for (const v of krOptions) {
+          krSel.append(h('option', { value: v.id, selected: v.id === state.krVersion ? 'true' : undefined }, [`${v.id} · ${v.effectiveDate} (${v.elements.map((e) => e.id).join('+')})`]));
+        }
+        const jpSel = h('select', { style: 'font:inherit;padding:6px 10px' });
+        for (const v of jpOptions) {
+          jpSel.append(h('option', { value: v.id, selected: v.id === state.jpVersion ? 'true' : undefined }, [`${v.id} · ${v.effectiveDate} (${v.elements.map((e) => e.id).join('+')})`]));
+        }
+        const onChange = () => {
+          state.krVersion = (krSel as HTMLSelectElement).value;
+          state.jpVersion = (jpSel as HTMLSelectElement).value;
+          persist();
+          renderAll();
+        };
+        krSel.addEventListener('change', onChange);
+        jpSel.addEventListener('change', onChange);
+
+        const kr = c.claimVersions.find((v) => v.id === state.krVersion);
+        const jp = c.claimVersions.find((v) => v.id === state.jpVersion);
+        const warnings: Node[] = [];
+        const later = [kr, jp].filter((v) => v && v.effectiveDate > state.comparisonDate);
+        if (later.length > 0) {
+          const target = later.map((v) => v!.effectiveDate).sort().pop()!;
+          const dayAfter = new Date(target + 'T00:00:00Z');
+          dayAfter.setUTCDate(dayAfter.getUTCDate() + 1);
+          const suggested = dayAfter.toISOString().slice(0, 10);
+          warnings.push(
+            h('div', { class: 'callout callout--warn' }, [
+              h('p', { style: 'margin:0 0 8px' }, [t('labFamily.mixingWarning')]),
+              h('button', {
+                class: 'btn btn--small',
+                onclick: () => {
+                  state.comparisonDate = suggested;
+                  persist();
+                  renderAll();
+                },
+              }, [`${t('labFamily.comparisonDate.label')} → ${suggested}`]),
+            ]),
+          );
+        }
+
+        const diffCards = h('div', { class: 'grid grid--2' }, [
+          h('div', { class: 'card kr-panel' }, [
+            h('h3', { class: 'mt-0' }, [`KR — ${kr?.id} (${kr?.effectiveDate})`]),
+            ...(kr ? kr.elements.map((el) => h('div', { class: 'el-card el-card--certain' }, [
+              h('span', { class: 'el-card__id' }, [el.id]),
+              h('div', {}, [
+                h('div', { class: 'el-card__label' }, [pick(lang, el.label)]),
+                h('div', { class: 'el-card__meta' }, [t('labClaims.mappingCertain')]),
+              ]),
+            ])) : []),
+          ]),
+          h('div', { class: 'card jp-panel' }, [
+            h('h3', { class: 'mt-0' }, [`JP — ${jp?.id} (${jp?.effectiveDate})`]),
+            ...(jp ? jp.elements.map((el) => h('div', { class: 'el-card el-card--certain' }, [
+              h('span', { class: 'el-card__id' }, [el.id]),
+              h('div', {}, [
+                h('div', { class: 'el-card__label' }, [pick(lang, el.label)]),
+                h('div', { class: 'el-card__meta' }, [t('labClaims.mappingCertain')]),
+              ]),
+            ])) : []),
+          ]),
+        ]);
+
+        stepShell(
+          2,
+          [
+            h('p', {}, [`${t('labFamily.comparisonDate.label')}: `, h('strong', {}, [state.comparisonDate])]),
+            h('p', {}, [t('labFamily.version.label')]),
+            krSel,
+            jpSel,
+            ...warnings,
+            diffCards,
+            ...(isDone(2) ? [feedback(t('exp.step2.done'), t('exp.step2.hint'))] : []),
+          ],
+          [],
+        );
+        break;
+      }
+
+      case 3: {
+        const krCite = spanOfCase(c, 'h01.kr.dossier.cite');
+        const jpCite = spanOfCase(c, 'h01.jp.dossier.citelist');
+        const d2 = spanOfCase(c, 'h01.d2.sec4');
+        const cardKr = h('button', {
+          class: 'card kr-panel',
+          style: 'text-align:left;cursor:pointer;font:inherit;color:inherit;width:100%',
+          onclick: () => {
+            state.citationsConfirmed = true;
+            persist();
+            renderAll();
+          },
+        }, [
+          h('h3', { class: 'mt-0' }, [`KR — ${t('exp.step3.krLabel')}`]),
+          h('p', { class: 'small' }, [t('exp.step3.krDesc')]),
+          krCite ? h('p', { class: 'orig orig--ko', style: 'margin:6px 0' }, [krCite.originalText]) : null,
+          h('span', { class: 'badge badge--kr' }, [t('origin.EXAMINER_CITED')]),
+        ]);
+        const cardJp = h('button', {
+          class: 'card jp-panel',
+          style: 'text-align:left;cursor:pointer;font:inherit;color:inherit;width:100%',
+          onclick: () => {
+            state.citationsConfirmed = true;
+            persist();
+            renderAll();
+          },
+        }, [
+          h('h3', { class: 'mt-0' }, [`JP — ${t('exp.step3.jpLabel')}`]),
+          h('p', { class: 'small' }, [t('exp.step3.jpDesc')]),
+          jpCite ? h('p', { class: 'orig orig--ja', style: 'margin:6px 0' }, [jpCite.originalText]) : null,
+          h('span', { class: 'badge badge--jp' }, [t('origin.EXAMINER_CITED')]),
+        ]);
+        const cardAi = h('div', { class: 'card' }, [
+          h('h3', { class: 'mt-0' }, [t('labPriorArt.tabAi')]),
+          h('p', { class: 'small' }, [t('origin.AI_DISCOVERED_AFTERWARD.hint')]),
+          d2 ? h('p', { class: 'orig orig--en', style: 'margin:6px 0' }, [d2.originalText]) : null,
+          h('span', { class: 'badge badge--ai' }, [t('origin.AI_DISCOVERED_AFTERWARD')]),
+        ]);
+        stepShell(3, [
+          h('div', { class: 'grid grid--2' }, [cardKr, cardJp]),
+          cardAi,
+          ...(state.citationsConfirmed ? [feedback(t('exp.step3.done'))] : []),
+        ]);
+        break;
+      }
+
+      case 4: {
+        const d1 = c.priorArt.find((p) => p.id === 'D1');
+        const body: Node[] = [
+          h('div', { class: 'table-wrap' }, [
+            h('table', { class: 'data' }, [
+              h('caption', {}, [t('labPriorArt.tabExaminer')]),
+              h('tbody', {}, [
+                h('tr', {}, [h('th', {}, [t('labPriorArt.pubDate')]), h('td', {}, [d1?.publicationDate ?? '—'])]),
+                h('tr', {}, [h('th', {}, [t('labPriorArt.location')]), h('td', {}, [spanLocation(c, 'h01.d1.p0012')])]),
+                h('tr', {}, [h('th', {}, [t('exp.summary.comparisonDate')]), h('td', {}, [state.comparisonDate])]),
+              ]),
+            ]),
+          ]),
+        ];
+        if (state.d1EvidenceViewed) {
+          body.push(
+            h('div', { class: 'grid grid--2' }, [
+              h('div', {}, [
+                origCard('h01.d1.p0012', 'D1'),
+                h('p', { class: 'small' }, [t('exp.step4.spanLabel')]),
+              ]),
+              h('div', {}, [
+                h('p', { class: 'small' }, [`KR 청구항 E3 — ${t('labClaims.mappingCertain')}`]),
+                origCard('h01.kr.claim1.v2.e3', 'KR'),
+              ]),
+            ]),
+            feedback(t('exp.step4.done'), t('exp.step4.hint')),
+          );
+        }
+        stepShell(4, body, [
+          state.d1EvidenceViewed
+            ? null
+            : h('button', {
+                class: 'btn btn--teal',
+                onclick: () => {
+                  state.d1EvidenceViewed = true;
+                  persist();
+                  renderAll();
+                },
+              }, [t('exp.step4.openD1')]),
+        ]);
+        break;
+      }
+
+      case 5: {
+        const body: Node[] = [];
+        if (state.krVersion === KR_V3) {
+          body.push(feedback(t('exp.step5.done'), t('exp.step5.warning')));
+        } else {
+          body.push(h('p', { class: 'small' }, [t('labClaims.diffLabel') + ': E1+E2+E3 → E1+E2+E3+E4']));
+        }
+        stepShell(5, body, [
+          state.krVersion === KR_V3
+            ? h('button', {
+                class: 'btn',
+                onclick: () => {
+                  state.krVersion = KR_V2;
+                  state.comparisonDate = BASE_DATE;
+                  persist();
+                  renderAll();
+                },
+              }, [t('exp.step5.undo')])
+            : h('button', {
+                class: 'btn btn--teal',
+                onclick: () => {
+                  state.krVersion = KR_V3;
+                  if (state.comparisonDate < V3_DATE) state.comparisonDate = V3_DATE;
+                  persist();
+                  renderAll();
+                },
+              }, [t('exp.step5.switch')]),
+        ]);
+        break;
+      }
+
+      case 6: {
+        const body: Node[] = [];
+        if (state.krVersion === KR_V3) {
+          body.push(
+            h('div', { class: 'callout callout--warn' }, [
+              h('p', { style: 'margin:0 0 8px' }, [t('labDisc.orderHint')]),
+              h('button', {
+                class: 'btn btn--small',
+                onclick: () => {
+                  state.krVersion = KR_V2;
+                  state.comparisonDate = BASE_DATE;
+                  persist();
+                  renderAll();
+                },
+              }, [t('exp.step5.undo')]),
+            ]),
+          );
+        } else if (state.d1DateOverride === '2022-09-01') {
+          body.push(feedback(t('exp.step6.done'), t('exp.step6.warning')));
+        }
+        stepShell(6, body, [
+          state.krVersion === KR_V3
+            ? null
+            : state.d1DateOverride === '2022-09-01'
+              ? h('button', {
+                  class: 'btn',
+                  onclick: () => {
+                    state.d1DateOverride = null;
+                    persist();
+                    renderAll();
+                  },
+                }, [t('exp.step6.undo')])
+              : h('button', {
+                  class: 'btn btn--teal',
+                  onclick: () => {
+                    state.d1DateOverride = '2022-09-01';
+                    persist();
+                    renderAll();
+                  },
+                }, [t('exp.step6.move')]),
+        ]);
+        break;
+      }
+
+      case 7: {
+        const body: Node[] = [];
+        if (state.translation === 'uncertain') {
+          body.push(feedback(t('exp.step7.done'), t('labClaims.translationSim.after')));
+        } else if (state.missingDocs.includes('h01.jp.dossier')) {
+          body.push(feedback(t('exp.step7.done'), t('verdict.UNKNOWN.next')));
+        }
+        stepShell(7, body, [
+          state.translation === 'uncertain' || state.missingDocs.includes('h01.jp.dossier')
+            ? h('button', {
+                class: 'btn',
+                onclick: () => {
+                  state.translation = 'verified';
+                  state.missingDocs = state.missingDocs.filter((x) => x !== 'h01.jp.dossier');
+                  persist();
+                  renderAll();
+                },
+              }, [t('exp.step7.undo')])
+            : null,
+          state.translation === 'uncertain' || state.missingDocs.includes('h01.jp.dossier')
+            ? null
+            : h('button', {
+                class: 'btn btn--teal',
+                onclick: () => {
+                  state.translation = 'uncertain';
+                  persist();
+                  renderAll();
+                },
+              }, [t('exp.step7.setLow')]),
+          state.translation === 'uncertain' || state.missingDocs.includes('h01.jp.dossier')
+            ? null
+            : h('button', {
+                class: 'btn',
+                onclick: () => {
+                  state.missingDocs = [...new Set([...state.missingDocs, 'h01.jp.dossier'])];
+                  persist();
+                  renderAll();
+                },
+              }, [t('exp.step7.setMissing')]),
+        ]);
+        break;
+      }
+
+      case 8:
+      default: {
+        panel.replaceChildren();
+        panel.append(h('p', {}, [t('exp.completeBody')]));
+        break;
+      }
+    }
+  }
+
+  // ── Trace panel ───────────────────────────────────────────
+  const traceCard = document.getElementById('exp-trace-card')!;
+  const traceEl = document.getElementById('exp-trace')!;
+  function renderTracePanel() {
+    if (!state.krVersion || !state.jpVersion) {
+      traceCard.hidden = true;
+      return;
+    }
+    traceCard.hidden = false;
+    clear(traceEl);
+    traceEl.append(renderTrace(lang, c, evalNow()));
+  }
+
+  // ── Final: baskets + human review ─────────────────────────
+  const finalEl = document.getElementById('exp-final')!;
+  const REVIEW_DECISIONS = ['CONFIRMED_GAP', 'REJECTED', 'LEGAL_DIVERGENCE', 'DEFERRED'] as const;
+
+  function renderFinal() {
+    if (state.step !== 8) {
+      finalEl.hidden = true;
+      return;
+    }
+    finalEl.hidden = false;
+    clear(finalEl);
+
+    const trace = evalNow();
+
+    const reviewItems: string[] = [];
+    const explainedItems: string[] = [];
+    const unknownItems: string[] = [];
+    if (trace.verdict === 'TRUE') {
+      reviewItems.push(trace.divergence.map((x) => t(`cls.${x}`)).join(' · ') + ` — ${trace.ruleId} ${trace.verdict}`);
+    } else if (trace.verdict === 'FALSE' || trace.verdict === 'NOT_APPLICABLE') {
+      explainedItems.push(trace.divergence.map((x) => t(`cls.${x}`)).join(' · ') + ` — ${trace.verdict}`);
+    } else if (trace.verdict === 'UNKNOWN') {
+      unknownItems.push(`${t('verdict.UNKNOWN')}: ${trace.missingEvidence.join(', ')}`);
+    }
+
+    finalEl.append(
+      h('h2', { class: 'mt-0' }, [t('exp.basketsTitle')]),
+      h('div', { class: 'grid grid--3' }, [
+        h('div', { class: 'basket basket--review' }, [
+          h('h3', {}, [t('exp.basketReview')]),
+          h('p', { class: 'small' }, [t('exp.basketReviewDesc')]),
+          h('ul', { class: 'basket__list' }, reviewItems.length > 0
+            ? reviewItems.map((x) => h('li', {}, [x]))
+            : [h('li', { class: 'basket__empty' }, ['—'])]),
+        ]),
+        h('div', { class: 'basket basket--explained' }, [
+          h('h3', {}, [t('exp.basketExplained')]),
+          h('p', { class: 'small' }, [t('exp.basketExplainedDesc')]),
+          h('ul', { class: 'basket__list' }, explainedItems.length > 0
+            ? explainedItems.map((x) => h('li', {}, [x]))
+            : [h('li', { class: 'basket__empty' }, ['—'])]),
+        ]),
+        h('div', { class: 'basket basket--unknown' }, [
+          h('h3', {}, [t('exp.basketUnknown')]),
+          h('p', { class: 'small' }, [t('exp.basketUnknownDesc')]),
+          h('ul', { class: 'basket__list' }, unknownItems.length > 0
+            ? unknownItems.map((x) => h('li', {}, [x]))
+            : [h('li', { class: 'basket__empty' }, ['—'])]),
+        ]),
+      ]),
+    );
+
+    // ── Human review (virtual JP reviewer) ───────────────────
+    const reviewSection = h('div', { class: 'card card--soft' });
+    reviewSection.append(
+      h('h3', { class: 'mt-0' }, [t('exp.reviewTitle')]),
+      h('p', { class: 'small' }, [t('exp.reviewIntro')]),
+      h('p', {}, [h('span', { class: 'badge badge--jp' }, [`JP — ${t('exp.reviewTitle')}`]), ' ', h('span', { class: 'badge badge--office' }, [t('ws.roleHint')])]),
+    );
+
+    const blindButton = h('button', {
+      class: 'btn btn--teal',
+      onclick: () => {
+        state.blindDone = true;
+        persist();
+        renderAll();
+      },
+    }, [t('exp.reviewBlindButton')]);
+    const groundsButton = h('button', {
+      class: 'btn',
+      onclick: () => {
+        state.groundsOpened = true;
+        persist();
+        renderAll();
+      },
+    }, [t('exp.reviewOpenGrounds')]);
+
+    const actions = h('div', { class: 'btn-row' });
+    if (!state.blindDone) {
+      actions.append(blindButton);
+      reviewSection.append(h('p', { class: 'small' }, [t('exp.reviewBlindHint')]));
+    } else {
+      actions.append(
+        h('span', { class: 'callout callout--ok', style: 'margin:0' }, [t('ws.blindDone')]),
+      );
+      if (!state.groundsOpened) actions.append(groundsButton);
+    }
+
+    if (state.blindDone) {
+      const blindPanel = h('div', { class: 'grid grid--2' }, [
+        h('div', {}, [
+          h('p', { class: 'small' }, [`JP ${t('labClaims.tabJp')} — ${t('ws.blindBody')}`]),
+          origCard('h01.jp.claim1.v1', 'JP'),
+          origCard('h01.jp.legal-profile', 'JP'),
+        ]),
+        h('div', {}, [
+          h('p', { class: 'small' }, ['D1']),
+          origCard('h01.d1.p0012', 'D1'),
+        ]),
+      ]);
+      reviewSection.append(blindPanel);
+    }
+
+    if (state.groundsOpened) {
+      reviewSection.append(
+        h('p', { class: 'small' }, [t('exp.reviewOpenGroundsHint')]),
+        h('div', {}, [
+          origCard('h01.kr.dossier.cite', 'KR'),
+        ]),
+      );
+    }
+
+    reviewSection.append(actions);
+
+    if (state.blindDone) {
+      const decisionTitle = h('h4', {}, [t('exp.reviewDecisionTitle')]);
+      const radios = h('div', { role: 'radiogroup', 'aria-label': t('exp.reviewDecisionTitle') });
+      for (const dec of REVIEW_DECISIONS) {
+        const label = h('label', { style: 'display:block;margin:6px 0;font-size:0.92rem' });
+        const radio = h('input', {
+          type: 'radio',
+          name: 'exp-review-decision',
+          value: dec,
+          checked: state.reviewerDecision === dec ? 'true' : undefined,
+          onchange: () => {
+            state.reviewerDecision = dec;
+            persist();
+            renderAll();
+          },
+        }) as HTMLInputElement;
+        label.append(radio, ' ', h('strong', {}, [dec]), ' — ', t(`decision.${dec}.desc`));
+        radios.append(label);
+      }
+      const reason = h('textarea', {
+        style: 'width:100%;min-height:80px;font:inherit;padding:8px;border:1px solid var(--line-strong);border-radius:6px',
+        placeholder: t('exp.reviewDecisionPlaceholder'),
+        oninput: (e: Event) => {
+          state.reviewerReason = (e.target as HTMLTextAreaElement).value;
+        },
+      }, [state.reviewerReason]);
+      const record = h('button', {
+        class: 'btn btn--primary',
+        onclick: () => {
+          if (!state.reviewerDecision || state.reviewerReason.trim().length === 0) {
+            window.alert(t('exp.reviewNeedDecision'));
+            return;
+          }
+          persist();
+          renderAll();
+        },
+      }, [t('exp.reviewDecide')]);
+
+      reviewSection.append(
+        decisionTitle,
+        radios,
+        h('p', { class: 'small' }, [t('ws.reasonLabel')]),
+        reason,
+        h('div', { class: 'btn-row' }, [record]),
+      );
+      if (state.reviewerDecision && state.reviewerReason.trim().length > 0) {
+        reviewSection.append(
+          feedback(t('exp.reviewRecorded'), `${state.reviewerDecision} — ${t('common.demoRecordNote')}`),
+        );
+      }
+    }
+    finalEl.append(reviewSection);
+
+    // ── Complete ─────────────────────────────────────────────
+    const shareUrl = shareableUrl(new URL(location.href), state);
+    finalEl.append(
+      h('div', { class: 'btn-row' }, [
+        h('a', { class: 'btn', href: `/lab/family/${lang === 'ko' ? '' : `?lang=${lang}`}` }, [t('exp.gotoLabs')]),
+        h('a', { class: 'btn btn--small', href: shareUrl }, ['🔗 ' + t('labCase.select')]),
+        h('button', {
+          class: 'btn btn--small',
+          onclick: () => {
+            clearState();
+            state = stateFromUrl(new URL(location.href), loadState());
+            state.caseId = 'H-01';
+            state.step = 1;
+            state.krVersion = '';
+            state.jpVersion = '';
+            state.comparisonDate = '';
+            persist();
+            renderAll();
+            window.scrollTo({ top: 0 });
+          },
+        }, [t('exp.restart')]),
+      ]),
+      h('p', { class: 'small mb-0' }, [t('exp.completeBody')]),
+    );
+  }
+
+  renderAll();
+</script>

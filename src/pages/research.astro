@@ -1,0 +1,77 @@
+---
+import BaseLayout from '../components/BaseLayout.astro';
+import StatusBadge from '../components/StatusBadge.astro';
+import { langFromUrl, t } from '../i18n';
+
+const lang = langFromUrl(Astro.url);
+const structureKeys = ['research.structure0', 'research.structure1', 'research.structure2', 'research.structure3', 'research.structure4', 'research.structure5'] as const;
+const hypoKeys = ['research.hypo1', 'research.hypo2', 'research.hypo3', 'research.hypo4'] as const;
+const limitKeys = ['research.limits1', 'research.limits2', 'research.limits3', 'research.limits4', 'research.limits5'] as const;
+const biblioKeys = ['research.biblio1', 'research.biblio2', 'research.biblio3', 'research.biblio4', 'research.biblio5', 'research.biblio6'] as const;
+const biblioHrefs = [
+  undefined,
+  'https://www.jpo.go.jp/e/introduction/hinshitu/shinsa/tokkyo/',
+  'https://www.jpo.go.jp/e/support/j_platpat/patent_search/OPD_service.html',
+  'https://www.wipo.int/en/web/case',
+  'https://www.wipo.int/standards/en/st96/',
+  'https://www.moip.go.kr/',
+];
+---
+<BaseLayout titleKeys={['nav.research', 'nav.siteName']} descKey="research.sub">
+  <div class="container">
+    <header class="page-head">
+      <StatusBadge kind="proposal" lang={lang} />
+      <h1>{t(lang, 'research.title')}</h1>
+      <p class="lead">{t(lang, 'research.sub')}</p>
+    </header>
+
+    <section class="card" aria-labelledby="abstract-title">
+      <h2 id="abstract-title">{t(lang, 'research.secAbstractTitle')}</h2>
+      <p>{t(lang, 'research.abstract1')}</p>
+      <p>{t(lang, 'research.abstract2')}</p>
+      <p>{t(lang, 'research.abstract3')}</p>
+      <p>{t(lang, 'research.abstract4')}</p>
+    </section>
+
+    <section class="card" aria-labelledby="structure-title">
+      <h2 id="structure-title">{t(lang, 'research.secStructureTitle')}</h2>
+      <p class="small">{t(lang, 'research.structureIntro')}</p>
+      <ol>
+        {structureKeys.map((k) => (
+          <li>{t(lang, k)}</li>
+        ))}
+      </ol>
+    </section>
+
+    <section class="grid grid--2">
+      <div class="card">
+        <h2 class="mt-0">{t(lang, 'research.secHypoTitle')}</h2>
+        <ul>
+          {hypoKeys.map((k) => (
+            <li>{t(lang, k)}</li>
+          ))}
+        </ul>
+      </div>
+      <div class="card">
+        <h2 class="mt-0">{t(lang, 'research.secLimitsTitle')}</h2>
+        <ul>
+          {limitKeys.map((k) => (
+            <li>{t(lang, k)}</li>
+          ))}
+        </ul>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="biblio-title">
+      <h2 id="biblio-title">{t(lang, 'research.secBiblioTitle')}</h2>
+      <ul>
+        {biblioKeys.map((k, i) => (
+          <li>
+            {biblioHrefs[i] ? <a href={biblioHrefs[i]} rel="noopener" target="_blank">{t(lang, k)}</a> : <strong>{t(lang, k)}</strong>}
+          </li>
+        ))}
+      </ul>
+      <p class="callout callout--sim mb-0">{t(lang, 'research.paperNote')}</p>
+    </section>
+  </div>
+</BaseLayout>
