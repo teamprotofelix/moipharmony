@@ -5,3 +5,6 @@ dist/
 *.local
 .DS_Store
 npm-debug.log*
+
+# 개인 작업용 파일 — GitHub에 올리지 않음
+.작업영속성/
