@@ -4,8 +4,8 @@
 품질관리 조율체계 연구」(E(on). Jun, CAIPEX 학회지, 2026.9.)의 **연구 제안명**입니다.
 운영 중인 양국 공동시스템이 아니며, 양청 실측 성능이 없습니다.
 
-이 저장소는 [개발계획](./AI_기반_MOIP-JPO_특허심사_품질관리_조율체계_연구_체험_사이트_개발계획.md)을
-구현한 **GitHub Pages 정적 연구 체험 사이트** 전체 소스입니다.
+이 저장소는 논문 「AI 기반 MOIP–JPO 특허심사 품질관리 조율체계 연구」의 개발계획서를 구현한
+**GitHub Pages 정적 연구 체험 사이트** 전체 소스입니다.
 배포 주소: **https://moipharmony.caipex.site** · 저장소: `teamprotofelix/moipharmony`
 
 > 상태 구분: `CURRENT PUBLIC PRACTICE` · `RESEARCH PROPOSAL` · `SIMULATION` ·
